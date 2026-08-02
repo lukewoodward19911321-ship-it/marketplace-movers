@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -19,6 +19,28 @@ type TrackingJob = {
   driver_location_updated_at: string | null;
 };
 
+type JobPhotoRow = {
+  id: number;
+  photo_path: string;
+  caption: string | null;
+  photo_type: string;
+  created_at: string;
+};
+
+type JobPhoto = JobPhotoRow & {
+  publicUrl: string;
+};
+
+type JobSignatureRow = {
+  customer_name: string | null;
+  signature_path: string;
+  signed_at: string;
+};
+
+type JobSignature = JobSignatureRow & {
+  publicUrl: string;
+};
+
 const trackingSteps = [
   "Booked",
   "On Route",
@@ -34,9 +56,17 @@ export default function TrackingPage() {
     : String(params.token || "");
 
   const [job, setJob] = useState<TrackingJob | null>(null);
+  const [photos, setPhotos] = useState<JobPhoto[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<JobPhoto | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [signature, setSignature] = useState<JobSignature | null>(null);
+  const [signatureName, setSignatureName] = useState("");
+  const [signatureMessage, setSignatureMessage] = useState("");
+  const [submittingSignature, setSubmittingSignature] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
 
   useEffect(() => {
     async function loadTracking() {
@@ -47,29 +77,79 @@ export default function TrackingPage() {
       }
 
       try {
-        const { data, error } = await supabase.rpc(
-          "get_public_job_tracking",
-          {
+        const [trackingResult, photosResult, signatureResult] = await Promise.all([
+          supabase.rpc("get_public_job_tracking", {
             p_tracking_token: token,
-          }
-        );
+          }),
+          supabase.rpc("get_public_job_photos", {
+            p_tracking_token: token,
+          }),
+          supabase.rpc("get_public_job_signature", {
+            p_tracking_token: token,
+          }),
+        ]);
 
-        if (error) {
-          throw error;
+        if (trackingResult.error) {
+          throw trackingResult.error;
+        }
+
+        if (photosResult.error) {
+          throw photosResult.error;
+        }
+
+        if (signatureResult.error) {
+          throw signatureResult.error;
         }
 
         const trackingJob =
-          Array.isArray(data) && data.length > 0
-            ? (data[0] as TrackingJob)
+          Array.isArray(trackingResult.data) &&
+          trackingResult.data.length > 0
+            ? (trackingResult.data[0] as TrackingJob)
             : null;
 
         if (!trackingJob) {
           setJob(null);
+          setPhotos([]);
           setNotFound(true);
           return;
         }
 
+        const photoRows = Array.isArray(photosResult.data)
+          ? (photosResult.data as JobPhotoRow[])
+          : [];
+
+        const photoGallery = photoRows.map((photo) => {
+          const { data } = supabase.storage
+            .from("job-photos")
+            .getPublicUrl(photo.photo_path);
+
+          return {
+            ...photo,
+            publicUrl: data.publicUrl,
+          };
+        });
+
+        const signatureRow =
+          Array.isArray(signatureResult.data) &&
+          signatureResult.data.length > 0
+            ? (signatureResult.data[0] as JobSignatureRow)
+            : null;
+
+        const signatureData = signatureRow
+          ? {
+              ...signatureRow,
+              publicUrl: supabase.storage
+                .from("job-signatures")
+                .getPublicUrl(signatureRow.signature_path).data.publicUrl,
+            }
+          : null;
+
         setJob(trackingJob);
+        setPhotos(photoGallery);
+        setSignature(signatureData);
+        if (!signatureName) {
+          setSignatureName(trackingJob.customer || "");
+        }
         setNotFound(false);
         setErrorMessage("");
       } catch (error: unknown) {
@@ -137,6 +217,15 @@ export default function TrackingPage() {
     });
   }
 
+  function formatPhotoTime(value: string) {
+    return new Date(value).toLocaleString("en-GB", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
   function currentStep(status: string) {
     if (status === "Paid") {
       return trackingSteps.indexOf("Completed");
@@ -170,13 +259,127 @@ export default function TrackingPage() {
     return `https://www.google.com/maps?q=${latitude},${longitude}`;
   }
 
+
+  function canvasPoint(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    };
+  }
+
+  function startSignature(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.setPointerCapture(event.pointerId);
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const point = canvasPoint(event);
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+    drawingRef.current = true;
+  }
+
+  function drawSignature(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawingRef.current) return;
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    const point = canvasPoint(event);
+    context.lineWidth = 5;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.strokeStyle = "#111827";
+    context.lineTo(point.x, point.y);
+    context.stroke();
+  }
+
+  function stopSignature() {
+    drawingRef.current = false;
+  }
+
+  function clearSignature() {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+    context.fillStyle = "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    setSignatureMessage("");
+  }
+
+  async function submitSignature() {
+    const canvas = canvasRef.current;
+    if (!canvas || !token) return;
+    if (!signatureName.trim()) {
+      setSignatureMessage("Please enter your name.");
+      return;
+    }
+
+    setSubmittingSignature(true);
+    setSignatureMessage("Saving signature...");
+
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((value) => {
+          if (value) resolve(value);
+          else reject(new Error("Could not create signature image."));
+        }, "image/png");
+      });
+
+      const path = `${token}/signature_${Date.now()}.png`;
+      const upload = await supabase.storage
+        .from("job-signatures")
+        .upload(path, blob, {
+          contentType: "image/png",
+          upsert: false,
+        });
+
+      if (upload.error) throw upload.error;
+
+      const saveResult = await supabase.rpc("save_customer_signature", {
+        p_tracking_token: token,
+        p_customer_name: signatureName.trim(),
+        p_signature_path: path,
+      });
+
+      if (saveResult.error) throw saveResult.error;
+
+      const publicUrl = supabase.storage
+        .from("job-signatures")
+        .getPublicUrl(path).data.publicUrl;
+
+      setSignature({
+        customer_name: signatureName.trim(),
+        signature_path: path,
+        signed_at: new Date().toISOString(),
+        publicUrl,
+      });
+      setJob((current) =>
+        current
+          ? { ...current, status: "Completed", live_tracking_enabled: false }
+          : current
+      );
+      setSignatureMessage("Thank you. Your signature has been saved.");
+    } catch (error: unknown) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error
+          ? String(error.message)
+          : "The signature could not be saved.";
+      setSignatureMessage(message);
+    } finally {
+      setSubmittingSignature(false);
+    }
+  }
+
   if (loading) {
     return (
       <main style={pageStyle}>
         <div style={cardStyle}>
-          <h1 style={{ marginTop: 0 }}>
-            Marketplace Movers
-          </h1>
+          <h1 style={{ marginTop: 0 }}>Marketplace Movers</h1>
 
           <p style={{ color: "#aab4c3" }}>
             Loading your tracking information...
@@ -361,15 +564,135 @@ export default function TrackingPage() {
               flexWrap: "wrap",
             }}
           >
-            <h2 style={{ margin: 0 }}>
-              Live van location
-            </h2>
+            <div>
+              <h2 style={{ margin: 0 }}>Your items</h2>
+              <p
+                style={{
+                  margin: "7px 0 0",
+                  color: "#96a3b5",
+                  fontSize: "14px",
+                }}
+              >
+                Photos uploaded by your driver during the job.
+              </p>
+            </div>
 
             <span
               style={{
-                background: hasLocation
-                  ? "#166534"
-                  : "#334155",
+                background: photos.length > 0 ? "#166534" : "#334155",
+                borderRadius: "999px",
+                padding: "8px 12px",
+                fontWeight: "bold",
+                fontSize: "13px",
+              }}
+            >
+              {photos.length === 0
+                ? "Waiting for photos"
+                : `${photos.length} photo${photos.length === 1 ? "" : "s"}`}
+            </span>
+          </div>
+
+          {photos.length === 0 ? (
+            <div
+              style={{
+                marginTop: "18px",
+                background: "#0b111b",
+                border: "1px solid #26364c",
+                borderRadius: "12px",
+                padding: "18px",
+              }}
+            >
+              <p style={{ margin: "0 0 7px" }}>
+                No item photos have been uploaded yet.
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  color: "#96a3b5",
+                  fontSize: "14px",
+                }}
+              >
+                New photos will appear here automatically.
+              </p>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: "14px",
+                marginTop: "18px",
+              }}
+            >
+              {photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  onClick={() => setSelectedPhoto(photo)}
+                  style={{
+                    padding: 0,
+                    border: "1px solid #26364c",
+                    borderRadius: "14px",
+                    overflow: "hidden",
+                    background: "#0b111b",
+                    color: "white",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                  aria-label="Open item photo full screen"
+                >
+                  <img
+                    src={photo.publicUrl}
+                    alt={photo.caption || "Customer items"}
+                    style={{
+                      width: "100%",
+                      height: "220px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+
+                  <div style={{ padding: "13px" }}>
+                    <strong>
+                      {photo.caption || "Items photo"}
+                    </strong>
+                    <p
+                      style={{
+                        color: "#96a3b5",
+                        margin: "7px 0 0",
+                        fontSize: "13px",
+                      }}
+                    >
+                      {photo.photo_type} · {formatPhotoTime(photo.created_at)}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            ...cardStyle,
+            marginTop: "18px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <h2 style={{ margin: 0 }}>Live van location</h2>
+
+            <span
+              style={{
+                background: hasLocation ? "#166534" : "#334155",
                 borderRadius: "999px",
                 padding: "8px 12px",
                 fontWeight: "bold",
@@ -435,9 +758,7 @@ export default function TrackingPage() {
                     }}
                   >
                     GPS accuracy: approximately{" "}
-                    {Math.round(
-                      job.driver_location_accuracy
-                    )}{" "}
+                    {Math.round(job.driver_location_accuracy)}{" "}
                     metres
                   </p>
                 )}
@@ -500,9 +821,7 @@ export default function TrackingPage() {
             marginTop: "18px",
           }}
         >
-          <h2 style={{ marginTop: 0 }}>
-            Delivery progress
-          </h2>
+          <h2 style={{ marginTop: 0 }}>Delivery progress</h2>
 
           {job.status === "Cancelled" ? (
             <div
@@ -535,9 +854,7 @@ export default function TrackingPage() {
                       display: "flex",
                       alignItems: "center",
                       gap: "14px",
-                      background: current
-                        ? "#102446"
-                        : "#0b111b",
+                      background: current ? "#102446" : "#0b111b",
                       border: current
                         ? "1px solid #2f7cff"
                         : "1px solid #26364c",
@@ -553,9 +870,7 @@ export default function TrackingPage() {
                         display: "grid",
                         placeItems: "center",
                         flexShrink: 0,
-                        background: complete
-                          ? "#1565ff"
-                          : "#26364c",
+                        background: complete ? "#1565ff" : "#26364c",
                         fontWeight: "bold",
                       }}
                     >
@@ -591,11 +906,207 @@ export default function TrackingPage() {
               marginTop: "18px",
             }}
           >
-            Status and location refresh automatically every 10
-            seconds.
+            Status, photos and location refresh automatically every
+            10 seconds.
           </p>
         </div>
+
+        <div
+          style={{
+            ...cardStyle,
+            marginTop: "18px",
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>Delivery signature</h2>
+
+          {signature ? (
+            <div style={detailBoxStyle}>
+              <strong>Signed by {signature.customer_name || "Customer"}</strong>
+              <img
+                src={signature.publicUrl}
+                alt="Customer delivery signature"
+                style={{
+                  width: "100%",
+                  maxHeight: "240px",
+                  objectFit: "contain",
+                  background: "white",
+                  borderRadius: "10px",
+                }}
+              />
+              <span style={detailLabelStyle}>
+                Signed {formatPhotoTime(signature.signed_at)}
+              </span>
+            </div>
+          ) : job.status === "Cancelled" ? (
+            <p style={{ color: "#96a3b5" }}>This booking was cancelled.</p>
+          ) : (
+            <>
+              <p style={{ color: "#96a3b5" }}>
+                Sign below to confirm the items were delivered safely.
+              </p>
+
+              <input
+                value={signatureName}
+                onChange={(event) => setSignatureName(event.target.value)}
+                placeholder="Your full name"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  background: "#0b111b",
+                  color: "white",
+                  border: "1px solid #26364c",
+                  borderRadius: "10px",
+                  padding: "13px",
+                  marginBottom: "12px",
+                  fontSize: "16px",
+                }}
+              />
+
+              <canvas
+                ref={canvasRef}
+                width={900}
+                height={320}
+                onPointerDown={startSignature}
+                onPointerMove={drawSignature}
+                onPointerUp={stopSignature}
+                onPointerCancel={stopSignature}
+                onPointerLeave={stopSignature}
+                style={{
+                  width: "100%",
+                  height: "220px",
+                  background: "white",
+                  borderRadius: "12px",
+                  touchAction: "none",
+                  display: "block",
+                }}
+              />
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                  marginTop: "12px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={clearSignature}
+                  style={secondaryButtonStyle}
+                >
+                  Clear
+                </button>
+
+                <button
+                  type="button"
+                  onClick={submitSignature}
+                  disabled={submittingSignature}
+                  style={primaryButtonStyle}
+                >
+                  {submittingSignature ? "Saving..." : "Submit signature"}
+                </button>
+              </div>
+
+              {signatureMessage && (
+                <p
+                  style={{
+                    marginBottom: 0,
+                    color: signatureMessage.startsWith("Thank")
+                      ? "#4ade80"
+                      : "#fca5a5",
+                  }}
+                >
+                  {signatureMessage}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
       </section>
+
+      {selectedPhoto && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Item photo preview"
+          onClick={() => setSelectedPhoto(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0, 0, 0, 0.92)",
+            padding: "20px",
+            display: "grid",
+            placeItems: "center",
+            cursor: "zoom-out",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "1000px",
+              maxHeight: "94vh",
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setSelectedPhoto(null)}
+              style={{
+                justifySelf: "end",
+                background: "#1f2937",
+                color: "white",
+                border: "1px solid #475569",
+                borderRadius: "999px",
+                width: "42px",
+                height: "42px",
+                fontSize: "22px",
+                cursor: "pointer",
+              }}
+              aria-label="Close photo"
+            >
+              ×
+            </button>
+
+            <img
+              src={selectedPhoto.publicUrl}
+              alt={selectedPhoto.caption || "Customer items"}
+              style={{
+                width: "100%",
+                maxHeight: "78vh",
+                objectFit: "contain",
+                borderRadius: "14px",
+                background: "#05070b",
+              }}
+            />
+
+            <div
+              style={{
+                background: "#111823",
+                border: "1px solid #243247",
+                borderRadius: "12px",
+                padding: "14px",
+              }}
+            >
+              <strong>
+                {selectedPhoto.caption || "Items photo"}
+              </strong>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  color: "#96a3b5",
+                }}
+              >
+                {selectedPhoto.photo_type} ·{" "}
+                {formatPhotoTime(selectedPhoto.created_at)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -630,4 +1141,24 @@ const detailBoxStyle = {
 const detailLabelStyle = {
   color: "#96a3b5",
   fontSize: "13px",
+};
+
+const primaryButtonStyle = {
+  background: "#1d4ed8",
+  color: "white",
+  border: 0,
+  borderRadius: "10px",
+  padding: "13px",
+  fontWeight: "bold",
+  cursor: "pointer",
+};
+
+const secondaryButtonStyle = {
+  background: "#334155",
+  color: "white",
+  border: "1px solid #475569",
+  borderRadius: "10px",
+  padding: "13px",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
