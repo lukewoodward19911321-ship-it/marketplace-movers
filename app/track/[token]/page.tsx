@@ -45,6 +45,7 @@ const trackingSteps = [
   "Booked",
   "On Route",
   "In Progress",
+  "Ready for Signature",
   "Completed",
 ];
 
@@ -939,10 +940,17 @@ export default function TrackingPage() {
             </div>
           ) : job.status === "Cancelled" ? (
             <p style={{ color: "#96a3b5" }}>This booking was cancelled.</p>
+          ) : job.status !== "Ready for Signature" ? (
+            <div style={detailBoxStyle}>
+              <strong>Waiting for the driver</strong>
+              <span style={detailLabelStyle}>
+                The signature box will appear once the driver confirms the delivery is ready to be signed for.
+              </span>
+            </div>
           ) : (
             <>
               <p style={{ color: "#96a3b5" }}>
-                Sign below to confirm the items were delivered safely.
+                The driver has confirmed delivery. Sign below to confirm the items were delivered safely.
               </p>
 
               <input
