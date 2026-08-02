@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 
 type DatabaseJob = {
   id: string;
+  tracking_token: string | null;
   customer: string;
   phone: string;
   job_type: string;
@@ -25,6 +26,7 @@ type DatabaseJob = {
 
 type Job = {
   id: string;
+  trackingToken: string;
   customer: string;
   phone: string;
   jobType: string;
@@ -60,6 +62,7 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
+  const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadJobs() {
@@ -79,23 +82,22 @@ export default function JobsPage() {
 
         const { data, error } = await supabase
           .from("jobs")
-          .select(
-            `
-              id,
-              customer,
-              phone,
-              job_type,
-              collection,
-              delivery,
-              job_date,
-              job_time,
-              price,
-              mileage,
-              payment_status,
-              notes,
-              status
-            `
-          )
+          .select(`
+            id,
+            tracking_token,
+            customer,
+            phone,
+            job_type,
+            collection,
+            delivery,
+            job_date,
+            job_time,
+            price,
+            mileage,
+            payment_status,
+            notes,
+            status
+          `)
           .eq("user_id", user.id)
           .order("job_date", { ascending: true })
           .order("job_time", { ascending: true });
@@ -104,25 +106,26 @@ export default function JobsPage() {
           throw error;
         }
 
-        const formattedJobs: Job[] = ((data || []) as DatabaseJob[]).map(
-          (job) => ({
-            id: job.id,
-            customer: job.customer || "",
-            phone: job.phone || "",
-            jobType: job.job_type || "",
-            collection: job.collection || "",
-            delivery: job.delivery || "",
-            date: job.job_date || "",
-            time: job.job_time
-              ? job.job_time.slice(0, 5)
-              : "",
-            price: Number(job.price || 0),
-            mileage: Number(job.mileage || 0),
-            paymentStatus: job.payment_status || "Not Paid",
-            notes: job.notes || "",
-            status: job.status || "Booked",
-          })
-        );
+        const formattedJobs: Job[] = (
+          (data || []) as DatabaseJob[]
+        ).map((job) => ({
+          id: job.id,
+          trackingToken: job.tracking_token || "",
+          customer: job.customer || "",
+          phone: job.phone || "",
+          jobType: job.job_type || "",
+          collection: job.collection || "",
+          delivery: job.delivery || "",
+          date: job.job_date || "",
+          time: job.job_time
+            ? job.job_time.slice(0, 5)
+            : "",
+          price: Number(job.price || 0),
+          mileage: Number(job.mileage || 0),
+          paymentStatus: job.payment_status || "Not Paid",
+          notes: job.notes || "",
+          status: job.status || "Booked",
+        }));
 
         setJobs(formattedJobs);
       } catch (error: unknown) {
@@ -144,7 +147,10 @@ export default function JobsPage() {
     loadJobs();
   }, [router]);
 
-  async function updateJobStatus(id: string, status: string) {
+  async function updateJobStatus(
+    id: string,
+    status: string
+  ) {
     setBusyJobId(id);
     setErrorMessage("");
 
@@ -268,6 +274,65 @@ export default function JobsPage() {
     }
   }
 
+  async function copyTrackingLink(job: Job) {
+    if (!job.trackingToken) {
+      setErrorMessage(
+        "This job does not have a tracking link."
+      );
+      return;
+    }
+
+    const trackingLink =
+      `${window.location.origin}/track/${job.trackingToken}`;
+
+    try {
+      await navigator.clipboard.writeText(trackingLink);
+
+      setCopiedJobId(job.id);
+
+      window.setTimeout(() => {
+        setCopiedJobId(null);
+      }, 2000);
+    } catch {
+      window.prompt(
+        "Copy this tracking link:",
+        trackingLink
+      );
+    }
+  }
+
+  async function shareTrackingOnWhatsApp(job: Job) {
+    if (!job.trackingToken) {
+      setErrorMessage(
+        "This job does not have a tracking link."
+      );
+      return;
+    }
+
+    const trackingLink =
+      `${window.location.origin}/track/${job.trackingToken}`;
+
+    const message =
+      `Hi ${job.customer || "there"}, you can track your ` +
+      `Marketplace Movers booking here: ${trackingLink}`;
+
+    const phoneNumber = (job.phone || "")
+      .replace(/\s/g, "")
+      .replace(/^0/, "44");
+
+    const whatsappUrl = phoneNumber
+      ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
+          message
+        )}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    window.open(
+      whatsappUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
   const filteredJobs = useMemo(() => {
     const searchText = search.trim().toLowerCase();
 
@@ -277,7 +342,7 @@ export default function JobsPage() {
           return true;
         }
 
-        return (job.status || "Booked") === statusFilter;
+        return job.status === statusFilter;
       })
       .filter((job) => {
         if (!searchText) {
@@ -418,7 +483,9 @@ export default function JobsPage() {
           >
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
               placeholder="Search customer, phone, address or job type..."
               style={{
                 width: "100%",
@@ -466,9 +533,16 @@ export default function JobsPage() {
                 padding: "28px",
               }}
             >
-              <h2 style={{ marginTop: 0 }}>Loading jobs...</h2>
+              <h2 style={{ marginTop: 0 }}>
+                Loading jobs...
+              </h2>
 
-              <p style={{ color: "#96a3b5", marginBottom: 0 }}>
+              <p
+                style={{
+                  color: "#96a3b5",
+                  marginBottom: 0,
+                }}
+              >
                 Getting your bookings from Supabase.
               </p>
             </div>
@@ -488,7 +562,9 @@ export default function JobsPage() {
                     padding: "28px",
                   }}
                 >
-                  <h2 style={{ marginTop: 0 }}>No jobs found</h2>
+                  <h2 style={{ marginTop: 0 }}>
+                    No jobs found
+                  </h2>
 
                   <p
                     style={{
@@ -496,19 +572,26 @@ export default function JobsPage() {
                       marginBottom: 0,
                     }}
                   >
-                    Add a new cloud job or change your search and
-                    filter.
+                    Add a new cloud job or change your search
+                    and filter.
                   </p>
                 </div>
               ) : (
-                <div style={{ display: "grid", gap: "16px" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "16px",
+                  }}
+                >
                   {filteredJobs.map((job) => {
                     const status = job.status || "Booked";
-                    const phoneNumber = (job.phone || "").replace(
-                      /\s/g,
-                      ""
-                    );
-                    const isBusy = busyJobId === job.id;
+
+                    const phoneNumber = (
+                      job.phone || ""
+                    ).replace(/\s/g, "");
+
+                    const isBusy =
+                      busyJobId === job.id;
 
                     return (
                       <article
@@ -524,14 +607,19 @@ export default function JobsPage() {
                         <div
                           style={{
                             display: "flex",
-                            justifyContent: "space-between",
+                            justifyContent:
+                              "space-between",
                             alignItems: "flex-start",
                             gap: "18px",
                             flexWrap: "wrap",
                           }}
                         >
                           <div>
-                            <h2 style={{ margin: "0 0 8px" }}>
+                            <h2
+                              style={{
+                                margin: "0 0 8px",
+                              }}
+                            >
                               {job.customer ||
                                 "Unnamed customer"}
                             </h2>
@@ -593,7 +681,8 @@ export default function JobsPage() {
 
                           <p style={{ margin: 0 }}>
                             <strong>Payment:</strong>{" "}
-                            {job.paymentStatus || "Not Paid"}
+                            {job.paymentStatus ||
+                              "Not Paid"}
                           </p>
                         </div>
 
@@ -606,17 +695,24 @@ export default function JobsPage() {
                         >
                           <p style={{ margin: "5px 0" }}>
                             <strong>Collection:</strong>{" "}
-                            {job.collection || "Not supplied"}
+                            {job.collection ||
+                              "Not supplied"}
                           </p>
 
                           <p style={{ margin: "5px 0" }}>
                             <strong>Delivery:</strong>{" "}
-                            {job.delivery || "Not supplied"}
+                            {job.delivery ||
+                              "Not supplied"}
                           </p>
 
                           {job.notes && (
-                            <p style={{ margin: "5px 0" }}>
-                              <strong>Notes:</strong> {job.notes}
+                            <p
+                              style={{
+                                margin: "5px 0",
+                              }}
+                            >
+                              <strong>Notes:</strong>{" "}
+                              {job.notes}
                             </p>
                           )}
                         </div>
@@ -640,7 +736,9 @@ export default function JobsPage() {
                             <>
                               <a
                                 href={`tel:${phoneNumber}`}
-                                style={buttonStyle("#334155")}
+                                style={buttonStyle(
+                                  "#334155"
+                                )}
                               >
                                 Call
                               </a>
@@ -652,12 +750,36 @@ export default function JobsPage() {
                                 )}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                style={buttonStyle("#166534")}
+                                style={buttonStyle(
+                                  "#166534"
+                                )}
                               >
                                 WhatsApp
                               </a>
                             </>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyTrackingLink(job)
+                            }
+                            style={buttonStyle("#9333ea")}
+                          >
+                            {copiedJobId === job.id
+                              ? "Link Copied ✓"
+                              : "Copy Tracking Link"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              shareTrackingOnWhatsApp(job)
+                            }
+                            style={buttonStyle("#15803d")}
+                          >
+                            Send Tracking Link
+                          </button>
 
                           <button
                             type="button"
@@ -704,7 +826,9 @@ export default function JobsPage() {
                           <button
                             type="button"
                             disabled={isBusy}
-                            onClick={() => markPaid(job.id)}
+                            onClick={() =>
+                              markPaid(job.id)
+                            }
                             style={buttonStyle("#7c3aed")}
                           >
                             Mark Paid
@@ -727,7 +851,9 @@ export default function JobsPage() {
                           <button
                             type="button"
                             disabled={isBusy}
-                            onClick={() => deleteJob(job.id)}
+                            onClick={() =>
+                              deleteJob(job.id)
+                            }
                             style={buttonStyle("#b91c1c")}
                           >
                             Delete
