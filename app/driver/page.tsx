@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 
 type DatabaseJob = {
   id: string;
+  tracking_token: string | null;
   customer: string;
   phone: string;
   job_type: string;
@@ -25,6 +26,7 @@ type DatabaseJob = {
 
 type Job = {
   id: string;
+  trackingToken: string;
   customer: string;
   phone: string;
   jobType: string;
@@ -55,6 +57,7 @@ export default function DriverPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
+  const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
 
   const today = getLocalDate();
 
@@ -76,23 +79,22 @@ export default function DriverPage() {
 
         const { data, error } = await supabase
           .from("jobs")
-          .select(
-            `
-              id,
-              customer,
-              phone,
-              job_type,
-              collection,
-              delivery,
-              job_date,
-              job_time,
-              price,
-              mileage,
-              payment_status,
-              notes,
-              status
-            `
-          )
+          .select(`
+            id,
+            tracking_token,
+            customer,
+            phone,
+            job_type,
+            collection,
+            delivery,
+            job_date,
+            job_time,
+            price,
+            mileage,
+            payment_status,
+            notes,
+            status
+          `)
           .eq("user_id", user.id)
           .eq("job_date", today)
           .neq("status", "Cancelled")
@@ -102,25 +104,26 @@ export default function DriverPage() {
           throw error;
         }
 
-        const formattedJobs: Job[] = ((data || []) as DatabaseJob[]).map(
-          (job) => ({
-            id: job.id,
-            customer: job.customer || "",
-            phone: job.phone || "",
-            jobType: job.job_type || "",
-            collection: job.collection || "",
-            delivery: job.delivery || "",
-            date: job.job_date || "",
-            time: job.job_time
-              ? job.job_time.slice(0, 5)
-              : "",
-            price: Number(job.price || 0),
-            mileage: Number(job.mileage || 0),
-            paymentStatus: job.payment_status || "Not Paid",
-            notes: job.notes || "",
-            status: job.status || "Booked",
-          })
-        );
+        const formattedJobs: Job[] = (
+          (data || []) as DatabaseJob[]
+        ).map((job) => ({
+          id: job.id,
+          trackingToken: job.tracking_token || "",
+          customer: job.customer || "",
+          phone: job.phone || "",
+          jobType: job.job_type || "",
+          collection: job.collection || "",
+          delivery: job.delivery || "",
+          date: job.job_date || "",
+          time: job.job_time
+            ? job.job_time.slice(0, 5)
+            : "",
+          price: Number(job.price || 0),
+          mileage: Number(job.mileage || 0),
+          paymentStatus: job.payment_status || "Not Paid",
+          notes: job.notes || "",
+          status: job.status || "Booked",
+        }));
 
         setJobs(formattedJobs);
       } catch (error: unknown) {
@@ -189,7 +192,6 @@ export default function DriverPage() {
         .from("jobs")
         .update({
           payment_status: "Paid",
-          status: "Paid",
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -204,7 +206,6 @@ export default function DriverPage() {
             ? {
                 ...job,
                 paymentStatus: "Paid",
-                status: "Paid",
               }
             : job
         )
@@ -223,6 +224,59 @@ export default function DriverPage() {
     } finally {
       setBusyJobId(null);
     }
+  }
+
+  async function copyTrackingLink(job: Job) {
+    if (!job.trackingToken) {
+      setErrorMessage(
+        "This job does not have a tracking link."
+      );
+      return;
+    }
+
+    const trackingLink =
+      `${window.location.origin}/track/${job.trackingToken}`;
+
+    try {
+      await navigator.clipboard.writeText(trackingLink);
+
+      setCopiedJobId(job.id);
+
+      window.setTimeout(() => {
+        setCopiedJobId(null);
+      }, 2000);
+    } catch {
+      window.prompt(
+        "Copy this tracking link:",
+        trackingLink
+      );
+    }
+  }
+
+  function sendTrackingLink(job: Job) {
+    if (!job.trackingToken) {
+      setErrorMessage(
+        "This job does not have a tracking link."
+      );
+      return;
+    }
+
+    const trackingLink =
+      `${window.location.origin}/track/${job.trackingToken}`;
+
+    const message =
+      `Hi ${job.customer || "there"}, you can track your ` +
+      `Marketplace Movers booking here: ${trackingLink}`;
+
+    const phoneNumber = whatsAppNumber(job.phone);
+
+    const url = phoneNumber
+      ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
+          message
+        )}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   const todaysRevenue = jobs.reduce(
@@ -271,16 +325,21 @@ export default function DriverPage() {
   }
 
   const actionStyle = (background: string) => ({
-    display: "inline-block",
+    display: "inline-flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "50px",
     background,
     color: "white",
     textDecoration: "none",
     border: "none",
-    borderRadius: "10px",
-    padding: "13px 16px",
+    borderRadius: "12px",
+    padding: "13px 17px",
     fontWeight: "bold",
     cursor: "pointer",
     fontSize: "15px",
+    boxSizing: "border-box" as const,
+    textAlign: "center" as const,
   });
 
   return (
@@ -305,9 +364,11 @@ export default function DriverPage() {
         <section
           style={{
             flex: 1,
+            width: "100%",
             maxWidth: "1100px",
             margin: "0 auto",
-            padding: "35px 24px",
+            padding: "28px 16px",
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -323,7 +384,7 @@ export default function DriverPage() {
             <div>
               <h1
                 style={{
-                  fontSize: "38px",
+                  fontSize: "36px",
                   margin: "0 0 8px",
                 }}
               >
@@ -333,11 +394,11 @@ export default function DriverPage() {
               <p
                 style={{
                   color: "#aab4c3",
-                  fontSize: "18px",
+                  fontSize: "17px",
                   margin: 0,
                 }}
               >
-                Today&apos;s cloud jobs and quick actions.
+                Today&apos;s jobs and mobile quick actions.
               </p>
             </div>
 
@@ -367,9 +428,9 @@ export default function DriverPage() {
             style={{
               display: "grid",
               gridTemplateColumns:
-                "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "18px",
-              marginBottom: "24px",
+                "repeat(auto-fit, minmax(190px, 1fr))",
+              gap: "14px",
+              marginBottom: "22px",
             }}
           >
             <div style={summaryCardStyle}>
@@ -393,7 +454,9 @@ export default function DriverPage() {
             </div>
 
             <div style={summaryCardStyle}>
-              <p style={summaryTitleStyle}>Outstanding</p>
+              <p style={summaryTitleStyle}>
+                Outstanding
+              </p>
 
               <strong style={summaryValueStyle}>
                 £{outstanding.toFixed(2)}
@@ -402,14 +465,7 @@ export default function DriverPage() {
           </div>
 
           {loading ? (
-            <div
-              style={{
-                background: "#111823",
-                border: "1px solid #243247",
-                borderRadius: "16px",
-                padding: "28px",
-              }}
-            >
+            <div style={emptyCardStyle}>
               <h2 style={{ marginTop: 0 }}>
                 Loading today&apos;s jobs...
               </h2>
@@ -424,14 +480,7 @@ export default function DriverPage() {
               </p>
             </div>
           ) : jobs.length === 0 ? (
-            <div
-              style={{
-                background: "#111823",
-                border: "1px solid #243247",
-                borderRadius: "16px",
-                padding: "28px",
-              }}
-            >
+            <div style={emptyCardStyle}>
               <h2 style={{ marginTop: 0 }}>
                 No jobs booked for today
               </h2>
@@ -442,8 +491,7 @@ export default function DriverPage() {
                   marginBottom: 0,
                 }}
               >
-                Add a cloud job for today and it will appear
-                here.
+                Add a job for today and it will appear here.
               </p>
             </div>
           ) : (
@@ -459,7 +507,7 @@ export default function DriverPage() {
                       background: "#111823",
                       border: "1px solid #243247",
                       borderRadius: "18px",
-                      padding: "22px",
+                      padding: "20px",
                       opacity: isBusy ? 0.7 : 1,
                     }}
                   >
@@ -478,13 +526,18 @@ export default function DriverPage() {
                             color: "#66a1ff",
                             fontWeight: "bold",
                             margin: "0 0 7px",
-                            fontSize: "18px",
+                            fontSize: "19px",
                           }}
                         >
                           {job.time || "Time not set"}
                         </p>
 
-                        <h2 style={{ margin: "0 0 7px" }}>
+                        <h2
+                          style={{
+                            margin: "0 0 7px",
+                            fontSize: "25px",
+                          }}
+                        >
                           {job.customer || "Unnamed customer"}
                         </h2>
 
@@ -504,7 +557,7 @@ export default function DriverPage() {
                             job.status || "Booked"
                           ),
                           borderRadius: "999px",
-                          padding: "8px 13px",
+                          padding: "9px 14px",
                           fontWeight: "bold",
                         }}
                       >
@@ -515,43 +568,54 @@ export default function DriverPage() {
                     <div
                       style={{
                         marginTop: "18px",
+                        display: "grid",
+                        gap: "8px",
                         color: "#cbd5e1",
                         lineHeight: 1.5,
                       }}
                     >
-                      <p style={{ margin: "5px 0" }}>
+                      <p style={{ margin: 0 }}>
                         <strong>Collection:</strong>{" "}
                         {job.collection || "Not supplied"}
                       </p>
 
-                      <p style={{ margin: "5px 0" }}>
+                      <p style={{ margin: 0 }}>
                         <strong>Delivery:</strong>{" "}
                         {job.delivery || "Not supplied"}
                       </p>
 
-                      <p style={{ margin: "5px 0" }}>
+                      <p style={{ margin: 0 }}>
                         <strong>Price:</strong> £
                         {job.price.toFixed(2)}
                       </p>
 
-                      <p style={{ margin: "5px 0" }}>
+                      <p style={{ margin: 0 }}>
                         <strong>Payment:</strong>{" "}
                         {job.paymentStatus || "Not Paid"}
                       </p>
 
                       {job.notes && (
-                        <p style={{ margin: "5px 0" }}>
+                        <p style={{ margin: 0 }}>
                           <strong>Notes:</strong> {job.notes}
                         </p>
                       )}
                     </div>
 
+                    <h3
+                      style={{
+                        margin: "22px 0 12px",
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      Contact and navigation
+                    </h3>
+
                     <div
                       style={{
-                        display: "flex",
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(160px, 1fr))",
                         gap: "10px",
-                        flexWrap: "wrap",
-                        marginTop: "20px",
                       }}
                     >
                       {phone && (
@@ -560,7 +624,7 @@ export default function DriverPage() {
                             href={`tel:${phone}`}
                             style={actionStyle("#334155")}
                           >
-                            Call
+                            📞 Call
                           </a>
 
                           <a
@@ -571,7 +635,7 @@ export default function DriverPage() {
                             rel="noreferrer"
                             style={actionStyle("#166534")}
                           >
-                            WhatsApp
+                            💬 WhatsApp
                           </a>
                         </>
                       )}
@@ -583,7 +647,7 @@ export default function DriverPage() {
                           rel="noreferrer"
                           style={actionStyle("#2563eb")}
                         >
-                          Waze Collection
+                          📍 Waze Collection
                         </a>
                       )}
 
@@ -594,17 +658,62 @@ export default function DriverPage() {
                           rel="noreferrer"
                           style={actionStyle("#1d4ed8")}
                         >
-                          Waze Delivery
+                          📍 Waze Delivery
                         </a>
                       )}
                     </div>
 
+                    <h3
+                      style={{
+                        margin: "22px 0 12px",
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      Customer tracking
+                    </h3>
+
                     <div
                       style={{
-                        display: "flex",
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(180px, 1fr))",
                         gap: "10px",
-                        flexWrap: "wrap",
-                        marginTop: "14px",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => copyTrackingLink(job)}
+                        style={actionStyle("#9333ea")}
+                      >
+                        {copiedJobId === job.id
+                          ? "Link Copied ✓"
+                          : "🔗 Copy Tracking Link"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => sendTrackingLink(job)}
+                        style={actionStyle("#15803d")}
+                      >
+                        💬 Send Tracking Link
+                      </button>
+                    </div>
+
+                    <h3
+                      style={{
+                        margin: "22px 0 12px",
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      Update job status
+                    </h3>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(160px, 1fr))",
+                        gap: "10px",
                       }}
                     >
                       <button
@@ -615,7 +724,7 @@ export default function DriverPage() {
                         }
                         style={actionStyle("#1d4ed8")}
                       >
-                        On Route
+                        🚚 On Route
                       </button>
 
                       <button
@@ -626,7 +735,7 @@ export default function DriverPage() {
                         }
                         style={actionStyle("#0f766e")}
                       >
-                        In Progress
+                        📦 In Progress
                       </button>
 
                       <button
@@ -637,7 +746,7 @@ export default function DriverPage() {
                         }
                         style={actionStyle("#15803d")}
                       >
-                        Completed
+                        ✅ Completed
                       </button>
 
                       <button
@@ -646,14 +755,14 @@ export default function DriverPage() {
                         onClick={() => markPaid(job.id)}
                         style={actionStyle("#7c3aed")}
                       >
-                        Mark Paid
+                        💷 Mark Paid
                       </button>
 
                       <Link
                         href={`/jobs/edit/${job.id}`}
                         style={actionStyle("#475569")}
                       >
-                        Edit
+                        ✏️ Edit Job
                       </Link>
                     </div>
                   </article>
@@ -671,7 +780,7 @@ const summaryCardStyle = {
   background: "#111823",
   border: "1px solid #243247",
   borderRadius: "16px",
-  padding: "22px",
+  padding: "20px",
 };
 
 const summaryTitleStyle = {
@@ -681,5 +790,12 @@ const summaryTitleStyle = {
 };
 
 const summaryValueStyle = {
-  fontSize: "32px",
+  fontSize: "30px",
+};
+
+const emptyCardStyle = {
+  background: "#111823",
+  border: "1px solid #243247",
+  borderRadius: "16px",
+  padding: "28px",
 };
