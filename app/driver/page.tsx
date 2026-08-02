@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../../components/Header";
 import Sidebar from "../../components/Sidebar";
@@ -22,6 +22,11 @@ type DatabaseJob = {
   payment_status: string;
   notes: string;
   status: string;
+  live_tracking_enabled: boolean;
+  driver_latitude: number | null;
+  driver_longitude: number | null;
+  driver_location_accuracy: number | null;
+  driver_location_updated_at: string | null;
 };
 
 type Job = {
@@ -39,6 +44,11 @@ type Job = {
   paymentStatus: string;
   notes: string;
   status: string;
+  liveTrackingEnabled: boolean;
+  driverLatitude: number | null;
+  driverLongitude: number | null;
+  driverLocationAccuracy: number | null;
+  driverLocationUpdatedAt: string;
 };
 
 function getLocalDate() {
@@ -56,8 +66,14 @@ export default function DriverPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [locationMessage, setLocationMessage] = useState("");
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
   const [copiedJobId, setCopiedJobId] = useState<string | null>(null);
+  const [activeTrackingJobId, setActiveTrackingJobId] =
+    useState<string | null>(null);
+
+  const watchIdRef = useRef<number | null>(null);
+  const lastLocationSentRef = useRef(0);
 
   const today = getLocalDate();
 
@@ -93,7 +109,12 @@ export default function DriverPage() {
             mileage,
             payment_status,
             notes,
-            status
+            status,
+            live_tracking_enabled,
+            driver_latitude,
+            driver_longitude,
+            driver_location_accuracy,
+            driver_location_updated_at
           `)
           .eq("user_id", user.id)
           .eq("job_date", today)
@@ -123,6 +144,15 @@ export default function DriverPage() {
           paymentStatus: job.payment_status || "Not Paid",
           notes: job.notes || "",
           status: job.status || "Booked",
+          liveTrackingEnabled: Boolean(
+            job.live_tracking_enabled
+          ),
+          driverLatitude: job.driver_latitude,
+          driverLongitude: job.driver_longitude,
+          driverLocationAccuracy:
+            job.driver_location_accuracy,
+          driverLocationUpdatedAt:
+            job.driver_location_updated_at || "",
         }));
 
         setJobs(formattedJobs);
@@ -145,7 +175,24 @@ export default function DriverPage() {
     loadTodaysJobs();
   }, [router, today]);
 
-  async function updateStatus(id: string, status: string) {
+  useEffect(() => {
+    return () => {
+      if (
+        watchIdRef.current !== null &&
+        typeof navigator !== "undefined" &&
+        navigator.geolocation
+      ) {
+        navigator.geolocation.clearWatch(
+          watchIdRef.current
+        );
+      }
+    };
+  }, []);
+
+  async function updateStatus(
+    id: string,
+    status: string
+  ) {
     setBusyJobId(id);
     setErrorMessage("");
 
@@ -226,6 +273,292 @@ export default function DriverPage() {
     }
   }
 
+  async function saveLocation(
+    jobId: string,
+    position: GeolocationPosition
+  ) {
+    const now = Date.now();
+
+    if (
+      lastLocationSentRef.current !== 0 &&
+      now - lastLocationSentRef.current < 5000
+    ) {
+      return;
+    }
+
+    lastLocationSentRef.current = now;
+
+    const latitude = position.coords.latitude;
+    const longitude = position.coords.longitude;
+    const accuracy = position.coords.accuracy;
+    const updatedAt = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("jobs")
+      .update({
+        live_tracking_enabled: true,
+        driver_latitude: latitude,
+        driver_longitude: longitude,
+        driver_location_accuracy: accuracy,
+        driver_location_updated_at: updatedAt,
+        updated_at: updatedAt,
+      })
+      .eq("id", jobId);
+
+    if (error) {
+      console.error("Location update error:", error);
+
+      setErrorMessage(
+        `Location could not be updated: ${error.message}`
+      );
+
+      return;
+    }
+
+    setJobs((currentJobs) =>
+      currentJobs.map((job) =>
+        job.id === jobId
+          ? {
+              ...job,
+              liveTrackingEnabled: true,
+              driverLatitude: latitude,
+              driverLongitude: longitude,
+              driverLocationAccuracy: accuracy,
+              driverLocationUpdatedAt: updatedAt,
+            }
+          : job
+      )
+    );
+
+    setLocationMessage(
+      `Live location updated. Accuracy: approximately ${Math.round(
+        accuracy
+      )} metres.`
+    );
+  }
+
+  async function startLiveTracking(job: Job) {
+    setErrorMessage("");
+    setLocationMessage("");
+
+    if (!window.isSecureContext) {
+      setErrorMessage(
+        "Live location requires the secure Vercel website. Open marketplace-movers.vercel.app on your phone."
+      );
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setErrorMessage(
+        "Location services are not supported by this browser."
+      );
+      return;
+    }
+
+    setBusyJobId(job.id);
+
+    try {
+      if (
+        watchIdRef.current !== null &&
+        activeTrackingJobId
+      ) {
+        navigator.geolocation.clearWatch(
+          watchIdRef.current
+        );
+
+        watchIdRef.current = null;
+
+        await supabase
+          .from("jobs")
+          .update({
+            live_tracking_enabled: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", activeTrackingJobId);
+
+        setJobs((currentJobs) =>
+          currentJobs.map((currentJob) =>
+            currentJob.id === activeTrackingJobId
+              ? {
+                  ...currentJob,
+                  liveTrackingEnabled: false,
+                }
+              : currentJob
+          )
+        );
+      }
+
+      const { error } = await supabase
+        .from("jobs")
+        .update({
+          live_tracking_enabled: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setJobs((currentJobs) =>
+        currentJobs.map((currentJob) =>
+          currentJob.id === job.id
+            ? {
+                ...currentJob,
+                liveTrackingEnabled: true,
+              }
+            : currentJob
+        )
+      );
+
+      setActiveTrackingJobId(job.id);
+      lastLocationSentRef.current = 0;
+
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          void saveLocation(job.id, position);
+        },
+        async (locationError) => {
+          console.error(
+            "Geolocation error:",
+            locationError
+          );
+
+          let message =
+            "Your location could not be accessed.";
+
+          if (locationError.code === 1) {
+            message =
+              "Location permission was denied. Allow location access in your browser settings.";
+          }
+
+          if (locationError.code === 2) {
+            message =
+              "Your phone could not determine its location. Make sure GPS is switched on.";
+          }
+
+          if (locationError.code === 3) {
+            message =
+              "Location request timed out. Try going outside or checking GPS.";
+          }
+
+          setErrorMessage(message);
+
+          await supabase
+            .from("jobs")
+            .update({
+              live_tracking_enabled: false,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+
+          setJobs((currentJobs) =>
+            currentJobs.map((currentJob) =>
+              currentJob.id === job.id
+                ? {
+                    ...currentJob,
+                    liveTrackingEnabled: false,
+                  }
+                : currentJob
+            )
+          );
+
+          setActiveTrackingJobId(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 3000,
+        }
+      );
+
+      watchIdRef.current = watchId;
+
+      setLocationMessage(
+        "Live tracking started. Keep Driver Mode open while travelling."
+      );
+    } catch (error: unknown) {
+      console.error(
+        "Start live tracking error:",
+        error
+      );
+
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error
+          ? String(error.message)
+          : "Live tracking could not be started.";
+
+      setErrorMessage(message);
+    } finally {
+      setBusyJobId(null);
+    }
+  }
+
+  async function stopLiveTracking(jobId: string) {
+    setBusyJobId(jobId);
+    setErrorMessage("");
+    setLocationMessage("");
+
+    try {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(
+          watchIdRef.current
+        );
+
+        watchIdRef.current = null;
+      }
+
+      const { error } = await supabase
+        .from("jobs")
+        .update({
+          live_tracking_enabled: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+
+      if (error) {
+        throw error;
+      }
+
+      setJobs((currentJobs) =>
+        currentJobs.map((job) =>
+          job.id === jobId
+            ? {
+                ...job,
+                liveTrackingEnabled: false,
+              }
+            : job
+        )
+      );
+
+      if (activeTrackingJobId === jobId) {
+        setActiveTrackingJobId(null);
+      }
+
+      setLocationMessage(
+        "Live tracking has been stopped."
+      );
+    } catch (error: unknown) {
+      console.error(
+        "Stop live tracking error:",
+        error
+      );
+
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error
+          ? String(error.message)
+          : "Live tracking could not be stopped.";
+
+      setErrorMessage(message);
+    } finally {
+      setBusyJobId(null);
+    }
+  }
+
   async function copyTrackingLink(job: Job) {
     if (!job.trackingToken) {
       setErrorMessage(
@@ -238,7 +571,9 @@ export default function DriverPage() {
       `${window.location.origin}/track/${job.trackingToken}`;
 
     try {
-      await navigator.clipboard.writeText(trackingLink);
+      await navigator.clipboard.writeText(
+        trackingLink
+      );
 
       setCopiedJobId(job.id);
 
@@ -274,20 +609,30 @@ export default function DriverPage() {
       ? `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
           message
         )}`
-      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+      : `https://wa.me/?text=${encodeURIComponent(
+          message
+        )}`;
 
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(
+      url,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   const todaysRevenue = jobs.reduce(
-    (total, job) => total + Number(job.price || 0),
+    (total, job) =>
+      total + Number(job.price || 0),
     0
   );
 
   const outstanding = jobs
-    .filter((job) => job.paymentStatus !== "Paid")
+    .filter(
+      (job) => job.paymentStatus !== "Paid"
+    )
     .reduce(
-      (total, job) => total + Number(job.price || 0),
+      (total, job) =>
+        total + Number(job.price || 0),
       0
     );
 
@@ -322,6 +667,21 @@ export default function DriverPage() {
       default:
         return "#b45309";
     }
+  }
+
+  function formatLocationTime(value: string) {
+    if (!value) {
+      return "Waiting for location";
+    }
+
+    return new Date(value).toLocaleTimeString(
+      "en-GB",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }
+    );
   }
 
   const actionStyle = (background: string) => ({
@@ -374,7 +734,8 @@ export default function DriverPage() {
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent:
+                "space-between",
               alignItems: "center",
               gap: "16px",
               flexWrap: "wrap",
@@ -398,7 +759,8 @@ export default function DriverPage() {
                   margin: 0,
                 }}
               >
-                Today&apos;s jobs and mobile quick actions.
+                Today&apos;s jobs, navigation and
+                live tracking.
               </p>
             </div>
 
@@ -414,13 +776,29 @@ export default function DriverPage() {
             <div
               style={{
                 background: "#451a1a",
-                border: "1px solid #991b1b",
+                border:
+                  "1px solid #991b1b",
                 borderRadius: "12px",
                 padding: "14px",
                 marginBottom: "20px",
               }}
             >
               {errorMessage}
+            </div>
+          )}
+
+          {locationMessage && (
+            <div
+              style={{
+                background: "#12351f",
+                border:
+                  "1px solid #258343",
+                borderRadius: "12px",
+                padding: "14px",
+                marginBottom: "20px",
+              }}
+            >
+              {locationMessage}
             </div>
           )}
 
@@ -476,7 +854,8 @@ export default function DriverPage() {
                   marginBottom: 0,
                 }}
               >
-                Getting your schedule from Supabase.
+                Getting your schedule from
+                Supabase.
               </p>
             </div>
           ) : jobs.length === 0 ? (
@@ -491,21 +870,39 @@ export default function DriverPage() {
                   marginBottom: 0,
                 }}
               >
-                Add a job for today and it will appear here.
+                Add a job for today and it will
+                appear here.
               </p>
             </div>
           ) : (
-            <div style={{ display: "grid", gap: "18px" }}>
+            <div
+              style={{
+                display: "grid",
+                gap: "18px",
+              }}
+            >
               {jobs.map((job) => {
-                const phone = cleanPhone(job.phone || "");
-                const isBusy = busyJobId === job.id;
+                const phone = cleanPhone(
+                  job.phone || ""
+                );
+
+                const isBusy =
+                  busyJobId === job.id;
+
+                const trackingIsActive =
+                  activeTrackingJobId ===
+                    job.id ||
+                  job.liveTrackingEnabled;
 
                 return (
                   <article
                     key={job.id}
                     style={{
                       background: "#111823",
-                      border: "1px solid #243247",
+                      border:
+                        trackingIsActive
+                          ? "2px solid #22c55e"
+                          : "1px solid #243247",
                       borderRadius: "18px",
                       padding: "20px",
                       opacity: isBusy ? 0.7 : 1,
@@ -514,8 +911,10 @@ export default function DriverPage() {
                     <div
                       style={{
                         display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
+                        justifyContent:
+                          "space-between",
+                        alignItems:
+                          "flex-start",
                         gap: "16px",
                         flexWrap: "wrap",
                       }}
@@ -529,7 +928,8 @@ export default function DriverPage() {
                             fontSize: "19px",
                           }}
                         >
-                          {job.time || "Time not set"}
+                          {job.time ||
+                            "Time not set"}
                         </p>
 
                         <h2
@@ -538,7 +938,8 @@ export default function DriverPage() {
                             fontSize: "25px",
                           }}
                         >
-                          {job.customer || "Unnamed customer"}
+                          {job.customer ||
+                            "Unnamed customer"}
                         </h2>
 
                         <p
@@ -551,18 +952,47 @@ export default function DriverPage() {
                         </p>
                       </div>
 
-                      <span
+                      <div
                         style={{
-                          background: statusColour(
-                            job.status || "Booked"
-                          ),
-                          borderRadius: "999px",
-                          padding: "9px 14px",
-                          fontWeight: "bold",
+                          display: "grid",
+                          justifyItems: "end",
+                          gap: "8px",
                         }}
                       >
-                        {job.status || "Booked"}
-                      </span>
+                        <span
+                          style={{
+                            background:
+                              statusColour(
+                                job.status ||
+                                  "Booked"
+                              ),
+                            borderRadius:
+                              "999px",
+                            padding: "9px 14px",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          {job.status ||
+                            "Booked"}
+                        </span>
+
+                        {trackingIsActive && (
+                          <span
+                            style={{
+                              background:
+                                "#166534",
+                              borderRadius:
+                                "999px",
+                              padding:
+                                "7px 12px",
+                              fontWeight: "bold",
+                              fontSize: "13px",
+                            }}
+                          >
+                            ● GPS LIVE
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div
@@ -575,13 +1005,19 @@ export default function DriverPage() {
                       }}
                     >
                       <p style={{ margin: 0 }}>
-                        <strong>Collection:</strong>{" "}
-                        {job.collection || "Not supplied"}
+                        <strong>
+                          Collection:
+                        </strong>{" "}
+                        {job.collection ||
+                          "Not supplied"}
                       </p>
 
                       <p style={{ margin: 0 }}>
-                        <strong>Delivery:</strong>{" "}
-                        {job.delivery || "Not supplied"}
+                        <strong>
+                          Delivery:
+                        </strong>{" "}
+                        {job.delivery ||
+                          "Not supplied"}
                       </p>
 
                       <p style={{ margin: 0 }}>
@@ -590,14 +1026,124 @@ export default function DriverPage() {
                       </p>
 
                       <p style={{ margin: 0 }}>
-                        <strong>Payment:</strong>{" "}
-                        {job.paymentStatus || "Not Paid"}
+                        <strong>
+                          Payment:
+                        </strong>{" "}
+                        {job.paymentStatus ||
+                          "Not Paid"}
                       </p>
 
                       {job.notes && (
                         <p style={{ margin: 0 }}>
-                          <strong>Notes:</strong> {job.notes}
+                          <strong>Notes:</strong>{" "}
+                          {job.notes}
                         </p>
+                      )}
+                    </div>
+
+                    <h3
+                      style={{
+                        margin: "22px 0 12px",
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      Live van tracking
+                    </h3>
+
+                    <div
+                      style={{
+                        background:
+                          trackingIsActive
+                            ? "#0d2c1a"
+                            : "#0b111b",
+                        border:
+                          trackingIsActive
+                            ? "1px solid #258343"
+                            : "1px solid #26364c",
+                        borderRadius: "12px",
+                        padding: "14px",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      <p
+                        style={{
+                          margin: "0 0 6px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {trackingIsActive
+                          ? "Live tracking is active"
+                          : "Live tracking is off"}
+                      </p>
+
+                      <p
+                        style={{
+                          color: "#aab4c3",
+                          margin: 0,
+                          fontSize: "14px",
+                        }}
+                      >
+                        Last update:{" "}
+                        {formatLocationTime(
+                          job.driverLocationUpdatedAt
+                        )}
+                      </p>
+
+                      {job.driverLocationAccuracy !==
+                        null && (
+                        <p
+                          style={{
+                            color: "#aab4c3",
+                            margin:
+                              "5px 0 0",
+                            fontSize: "14px",
+                          }}
+                        >
+                          Accuracy: approximately{" "}
+                          {Math.round(
+                            job.driverLocationAccuracy
+                          )}{" "}
+                          metres
+                        </p>
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(180px, 1fr))",
+                        gap: "10px",
+                      }}
+                    >
+                      {!trackingIsActive ? (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() =>
+                            startLiveTracking(job)
+                          }
+                          style={actionStyle(
+                            "#16a34a"
+                          )}
+                        >
+                          📍 Start Live Tracking
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() =>
+                            stopLiveTracking(
+                              job.id
+                            )
+                          }
+                          style={actionStyle(
+                            "#dc2626"
+                          )}
+                        >
+                          ⏹ Stop Live Tracking
+                        </button>
                       )}
                     </div>
 
@@ -622,7 +1168,9 @@ export default function DriverPage() {
                         <>
                           <a
                             href={`tel:${phone}`}
-                            style={actionStyle("#334155")}
+                            style={actionStyle(
+                              "#334155"
+                            )}
                           >
                             📞 Call
                           </a>
@@ -633,7 +1181,9 @@ export default function DriverPage() {
                             )}`}
                             target="_blank"
                             rel="noreferrer"
-                            style={actionStyle("#166534")}
+                            style={actionStyle(
+                              "#166534"
+                            )}
                           >
                             💬 WhatsApp
                           </a>
@@ -642,10 +1192,14 @@ export default function DriverPage() {
 
                       {job.collection && (
                         <a
-                          href={wazeLink(job.collection)}
+                          href={wazeLink(
+                            job.collection
+                          )}
                           target="_blank"
                           rel="noreferrer"
-                          style={actionStyle("#2563eb")}
+                          style={actionStyle(
+                            "#2563eb"
+                          )}
                         >
                           📍 Waze Collection
                         </a>
@@ -653,10 +1207,14 @@ export default function DriverPage() {
 
                       {job.delivery && (
                         <a
-                          href={wazeLink(job.delivery)}
+                          href={wazeLink(
+                            job.delivery
+                          )}
                           target="_blank"
                           rel="noreferrer"
-                          style={actionStyle("#1d4ed8")}
+                          style={actionStyle(
+                            "#1d4ed8"
+                          )}
                         >
                           📍 Waze Delivery
                         </a>
@@ -669,7 +1227,7 @@ export default function DriverPage() {
                         color: "#cbd5e1",
                       }}
                     >
-                      Customer tracking
+                      Customer tracking link
                     </h3>
 
                     <div
@@ -682,8 +1240,12 @@ export default function DriverPage() {
                     >
                       <button
                         type="button"
-                        onClick={() => copyTrackingLink(job)}
-                        style={actionStyle("#9333ea")}
+                        onClick={() =>
+                          copyTrackingLink(job)
+                        }
+                        style={actionStyle(
+                          "#9333ea"
+                        )}
                       >
                         {copiedJobId === job.id
                           ? "Link Copied ✓"
@@ -692,8 +1254,12 @@ export default function DriverPage() {
 
                       <button
                         type="button"
-                        onClick={() => sendTrackingLink(job)}
-                        style={actionStyle("#15803d")}
+                        onClick={() =>
+                          sendTrackingLink(job)
+                        }
+                        style={actionStyle(
+                          "#15803d"
+                        )}
                       >
                         💬 Send Tracking Link
                       </button>
@@ -720,9 +1286,14 @@ export default function DriverPage() {
                         type="button"
                         disabled={isBusy}
                         onClick={() =>
-                          updateStatus(job.id, "On Route")
+                          updateStatus(
+                            job.id,
+                            "On Route"
+                          )
                         }
-                        style={actionStyle("#1d4ed8")}
+                        style={actionStyle(
+                          "#1d4ed8"
+                        )}
                       >
                         🚚 On Route
                       </button>
@@ -731,9 +1302,14 @@ export default function DriverPage() {
                         type="button"
                         disabled={isBusy}
                         onClick={() =>
-                          updateStatus(job.id, "In Progress")
+                          updateStatus(
+                            job.id,
+                            "In Progress"
+                          )
                         }
-                        style={actionStyle("#0f766e")}
+                        style={actionStyle(
+                          "#0f766e"
+                        )}
                       >
                         📦 In Progress
                       </button>
@@ -742,9 +1318,14 @@ export default function DriverPage() {
                         type="button"
                         disabled={isBusy}
                         onClick={() =>
-                          updateStatus(job.id, "Completed")
+                          updateStatus(
+                            job.id,
+                            "Completed"
+                          )
                         }
-                        style={actionStyle("#15803d")}
+                        style={actionStyle(
+                          "#15803d"
+                        )}
                       >
                         ✅ Completed
                       </button>
@@ -752,15 +1333,21 @@ export default function DriverPage() {
                       <button
                         type="button"
                         disabled={isBusy}
-                        onClick={() => markPaid(job.id)}
-                        style={actionStyle("#7c3aed")}
+                        onClick={() =>
+                          markPaid(job.id)
+                        }
+                        style={actionStyle(
+                          "#7c3aed"
+                        )}
                       >
                         💷 Mark Paid
                       </button>
 
                       <Link
                         href={`/jobs/edit/${job.id}`}
-                        style={actionStyle("#475569")}
+                        style={actionStyle(
+                          "#475569"
+                        )}
                       >
                         ✏️ Edit Job
                       </Link>
