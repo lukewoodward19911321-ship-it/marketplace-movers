@@ -12,6 +12,11 @@ type TrackingJob = {
   job_date: string | null;
   job_time: string | null;
   status: string;
+  live_tracking_enabled: boolean;
+  driver_latitude: number | null;
+  driver_longitude: number | null;
+  driver_location_accuracy: number | null;
+  driver_location_updated_at: string | null;
 };
 
 const trackingSteps = [
@@ -87,7 +92,7 @@ export default function TrackingPage() {
 
     const refreshTimer = window.setInterval(() => {
       loadTracking();
-    }, 15000);
+    }, 10000);
 
     return () => {
       window.clearInterval(refreshTimer);
@@ -118,6 +123,20 @@ export default function TrackingPage() {
     return time.slice(0, 5);
   }
 
+  function formatLocationUpdate(value: string | null) {
+    if (!value) {
+      return "Waiting for the driver’s location";
+    }
+
+    return new Date(value).toLocaleString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      day: "numeric",
+      month: "short",
+    });
+  }
+
   function currentStep(status: string) {
     if (status === "Paid") {
       return trackingSteps.indexOf("Completed");
@@ -130,6 +149,25 @@ export default function TrackingPage() {
     const index = trackingSteps.indexOf(status);
 
     return index >= 0 ? index : 0;
+  }
+
+  function mapUrl(latitude: number, longitude: number) {
+    const offset = 0.008;
+
+    const left = longitude - offset;
+    const bottom = latitude - offset;
+    const right = longitude + offset;
+    const top = latitude + offset;
+
+    return (
+      "https://www.openstreetmap.org/export/embed.html" +
+      `?bbox=${left}%2C${bottom}%2C${right}%2C${top}` +
+      `&layer=mapnik&marker=${latitude}%2C${longitude}`
+    );
+  }
+
+  function openMapUrl(latitude: number, longitude: number) {
+    return `https://www.google.com/maps?q=${latitude},${longitude}`;
   }
 
   if (loading) {
@@ -171,12 +209,17 @@ export default function TrackingPage() {
 
   const activeStep = currentStep(job.status);
 
+  const hasLocation =
+    job.live_tracking_enabled &&
+    job.driver_latitude !== null &&
+    job.driver_longitude !== null;
+
   return (
     <main style={pageStyle}>
       <section
         style={{
           width: "100%",
-          maxWidth: "720px",
+          maxWidth: "760px",
         }}
       >
         <div
@@ -200,7 +243,7 @@ export default function TrackingPage() {
               margin: 0,
             }}
           >
-            Live booking status
+            Live booking and van tracking
           </p>
         </div>
 
@@ -266,9 +309,7 @@ export default function TrackingPage() {
             }}
           >
             <div style={detailBoxStyle}>
-              <span style={detailLabelStyle}>
-                Job
-              </span>
+              <span style={detailLabelStyle}>Job</span>
               <strong>{job.job_type || "Moving job"}</strong>
             </div>
 
@@ -276,6 +317,7 @@ export default function TrackingPage() {
               <span style={detailLabelStyle}>
                 Date and time
               </span>
+
               <strong>
                 {formatDate(job.job_date)} at{" "}
                 {formatTime(job.job_time)}
@@ -286,6 +328,7 @@ export default function TrackingPage() {
               <span style={detailLabelStyle}>
                 Collection
               </span>
+
               <strong>
                 {job.collection || "Not supplied"}
               </strong>
@@ -295,11 +338,160 @@ export default function TrackingPage() {
               <span style={detailLabelStyle}>
                 Delivery
               </span>
+
               <strong>
                 {job.delivery || "Not supplied"}
               </strong>
             </div>
           </div>
+        </div>
+
+        <div
+          style={{
+            ...cardStyle,
+            marginTop: "18px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <h2 style={{ margin: 0 }}>
+              Live van location
+            </h2>
+
+            <span
+              style={{
+                background: hasLocation
+                  ? "#166534"
+                  : "#334155",
+                borderRadius: "999px",
+                padding: "8px 12px",
+                fontWeight: "bold",
+                fontSize: "13px",
+              }}
+            >
+              {hasLocation
+                ? "● LIVE"
+                : "Location not currently shared"}
+            </span>
+          </div>
+
+          {hasLocation &&
+          job.driver_latitude !== null &&
+          job.driver_longitude !== null ? (
+            <>
+              <div
+                style={{
+                  marginTop: "18px",
+                  border: "1px solid #26364c",
+                  borderRadius: "14px",
+                  overflow: "hidden",
+                  background: "#0b111b",
+                }}
+              >
+                <iframe
+                  title="Marketplace Movers live van location"
+                  src={mapUrl(
+                    job.driver_latitude,
+                    job.driver_longitude
+                  )}
+                  style={{
+                    width: "100%",
+                    height: "360px",
+                    border: 0,
+                    display: "block",
+                  }}
+                  loading="lazy"
+                />
+              </div>
+
+              <div
+                style={{
+                  marginTop: "14px",
+                  background: "#0b111b",
+                  border: "1px solid #26364c",
+                  borderRadius: "12px",
+                  padding: "14px",
+                }}
+              >
+                <p style={{ margin: "0 0 6px" }}>
+                  <strong>Last location update:</strong>{" "}
+                  {formatLocationUpdate(
+                    job.driver_location_updated_at
+                  )}
+                </p>
+
+                {job.driver_location_accuracy !== null && (
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "#aab4c3",
+                    }}
+                  >
+                    GPS accuracy: approximately{" "}
+                    {Math.round(
+                      job.driver_location_accuracy
+                    )}{" "}
+                    metres
+                  </p>
+                )}
+              </div>
+
+              <a
+                href={openMapUrl(
+                  job.driver_latitude,
+                  job.driver_longitude
+                )}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "block",
+                  marginTop: "14px",
+                  background: "#1d4ed8",
+                  color: "white",
+                  textDecoration: "none",
+                  borderRadius: "10px",
+                  padding: "13px",
+                  textAlign: "center",
+                  fontWeight: "bold",
+                }}
+              >
+                Open van location in Maps
+              </a>
+            </>
+          ) : (
+            <div
+              style={{
+                marginTop: "18px",
+                background: "#0b111b",
+                border: "1px solid #26364c",
+                borderRadius: "12px",
+                padding: "18px",
+              }}
+            >
+              <p style={{ margin: "0 0 7px" }}>
+                The driver is not currently sharing a live
+                location.
+              </p>
+
+              <p
+                style={{
+                  margin: 0,
+                  color: "#96a3b5",
+                  fontSize: "14px",
+                }}
+              >
+                The map will appear automatically when live
+                tracking starts.
+              </p>
+            </div>
+          )}
         </div>
 
         <div
@@ -399,7 +591,8 @@ export default function TrackingPage() {
               marginTop: "18px",
             }}
           >
-            This page refreshes automatically every 15 seconds.
+            Status and location refresh automatically every 10
+            seconds.
           </p>
         </div>
       </section>
