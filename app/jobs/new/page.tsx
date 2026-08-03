@@ -6,6 +6,50 @@ import Header from "../../../components/Header";
 import Sidebar from "../../../components/Sidebar";
 import { supabase } from "@/lib/supabase";
 
+type SavedJob = {
+  id: string;
+  tracking_token: string | null;
+};
+
+function whatsAppNumber(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+
+  if (digits.startsWith("0044")) {
+    return digits.slice(2);
+  }
+
+  if (digits.startsWith("44")) {
+    return digits;
+  }
+
+  if (digits.startsWith("0")) {
+    return `44${digits.slice(1)}`;
+  }
+
+  return digits;
+}
+
+function formatBookingDate(date: string) {
+  if (!date) {
+    return "Date to be confirmed";
+  }
+
+  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatBookingTime(time: string) {
+  if (!time) {
+    return "Time to be confirmed";
+  }
+
+  return time.slice(0, 5);
+}
+
 export default function AddJobPage() {
   const router = useRouter();
 
@@ -15,15 +59,23 @@ export default function AddJobPage() {
 
   async function saveJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const customer = String(form.get("customer") || "").trim();
+    const phone = String(form.get("phone") || "").trim();
+    const jobType = String(form.get("jobType") || "").trim();
+    const collection = String(form.get("collection") || "").trim();
+    const delivery = String(form.get("delivery") || "").trim();
+    const date = String(form.get("date") || "");
+    const time = String(form.get("time") || "");
 
     setSaving(true);
     setSaved(false);
     setErrorMessage("");
 
     try {
-      const form = new FormData(event.currentTarget);
-
       const {
         data: { user },
         error: userError,
@@ -36,13 +88,13 @@ export default function AddJobPage() {
 
       const jobData = {
         user_id: user.id,
-        customer: String(form.get("customer") || ""),
-        phone: String(form.get("phone") || ""),
-        job_type: String(form.get("jobType") || ""),
-        collection: String(form.get("collection") || ""),
-        delivery: String(form.get("delivery") || ""),
-        job_date: String(form.get("date") || "") || null,
-        job_time: String(form.get("time") || "") || null,
+        customer,
+        phone,
+        job_type: jobType,
+        collection,
+        delivery,
+        job_date: date || null,
+        job_time: time || null,
         price: Number(form.get("price") || 0),
         mileage: Number(form.get("mileage") || 0),
         payment_status: String(
@@ -52,16 +104,23 @@ export default function AddJobPage() {
         status: "Booked",
       };
 
-      const { error } = await supabase.from("jobs").insert(jobData);
+      const { data, error } = await supabase
+        .from("jobs")
+        .insert(jobData)
+        .select("id, tracking_token")
+        .single();
 
       if (error) {
         throw error;
       }
 
+      const savedJob = data as SavedJob;
+
       // Temporary browser copy while the rest of the pages
       // are still being moved over to Supabase.
       const localJob = {
-        id: Date.now(),
+        id: savedJob.id,
+        trackingToken: savedJob.tracking_token || "",
         customer: jobData.customer,
         phone: jobData.phone,
         jobType: jobData.job_type,
@@ -82,27 +141,65 @@ export default function AddJobPage() {
 
       localStorage.setItem(
         "marketplace-movers-jobs",
-        JSON.stringify([...existingJobs, localJob])
+        JSON.stringify([localJob, ...existingJobs])
       );
 
       setSaved(true);
-     formElement.reset();
+      formElement.reset();
 
-      setTimeout(() => {
+      if (phone) {
+        const trackingLink = savedJob.tracking_token
+          ? `${window.location.origin}/track/${savedJob.tracking_token}`
+          : "";
+
+        const message = [
+          `Hi ${customer || "there"},`,
+          "",
+          "Your Marketplace Movers booking is confirmed.",
+          "",
+          `Job: ${jobType || "Moving job"}`,
+          `Date: ${formatBookingDate(date)}`,
+          `Time: ${formatBookingTime(time)}`,
+          `Collection: ${collection || "To be confirmed"}`,
+          `Delivery: ${delivery || "To be confirmed"}`,
+          "",
+          trackingLink
+            ? `You can view your booking and track the driver here:\n${trackingLink}`
+            : "",
+          "",
+          "Thank you,\nMarketplace Movers",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        const number = whatsAppNumber(phone);
+        const whatsAppUrl =
+          `https://api.whatsapp.com/send?phone=${number}&text=${encodeURIComponent(message)}`;
+
+        window.location.href = whatsAppUrl;
+
+        window.setTimeout(() => {
+          router.push("/jobs");
+        }, 1200);
+
+        return;
+      }
+
+      window.setTimeout(() => {
         router.push("/jobs");
       }, 1000);
     } catch (error: unknown) {
-  console.error("Supabase save error:", error);
+      console.error("Supabase save error:", error);
 
-  const message =
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error
-      ? String(error.message)
-      : "The job could not be saved.";
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error
+          ? String(error.message)
+          : "The job could not be saved.";
 
-  setErrorMessage(message);
-} finally {
+      setErrorMessage(message);
+    } finally {
       setSaving(false);
     }
   }
@@ -180,7 +277,9 @@ export default function AddJobPage() {
             </h1>
 
             <p style={{ color: "#96a3b5", marginBottom: "28px" }}>
-              Enter the booking and customer details below.
+              Enter the booking details below. When a phone number is
+              supplied, WhatsApp will open with a confirmation message
+              ready for you to send.
             </p>
 
             <form onSubmit={saveJob}>
@@ -206,6 +305,7 @@ export default function AddJobPage() {
                   <input
                     name="phone"
                     type="tel"
+                    placeholder="07..."
                     style={inputStyle}
                   />
                 </label>
@@ -319,7 +419,8 @@ export default function AddJobPage() {
                     marginTop: "20px",
                   }}
                 >
-                  Job saved successfully.
+                  Job saved successfully. WhatsApp is opening with the
+                  confirmation message.
                 </p>
               )}
 
@@ -342,7 +443,7 @@ export default function AddJobPage() {
                 disabled={saving}
                 style={{
                   marginTop: "22px",
-                  background: "#1565ff",
+                  background: "#15803d",
                   color: "white",
                   border: "none",
                   borderRadius: "10px",
@@ -353,7 +454,9 @@ export default function AddJobPage() {
                   opacity: saving ? 0.7 : 1,
                 }}
               >
-                {saving ? "Saving..." : "Save Job"}
+                {saving
+                  ? "Saving..."
+                  : "Save Job & Open WhatsApp"}
               </button>
             </form>
           </div>
