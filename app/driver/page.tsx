@@ -1302,20 +1302,20 @@ export default function DriverPage() {
                       </button>
 
                       <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() =>
-                          updateStatus(
-                            job.id,
-                            "In Progress"
-                          )
-                        }
-                        style={actionStyle(
-                          "#0f766e"
-                        )}
-                      >
-                        📦 In Progress
-                      <button
+  type="button"
+  disabled={isBusy}
+  onClick={() =>
+    updateStatus(
+      job.id,
+      "In Progress"
+    )
+  }
+  style={actionStyle("#0f766e")}
+>
+  📦 In Progress
+</button>
+
+<button
   type="button"
   disabled={isBusy}
   onClick={() =>
