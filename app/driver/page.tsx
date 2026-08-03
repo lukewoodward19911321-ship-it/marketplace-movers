@@ -652,22 +652,25 @@ export default function DriverPage() {
 
   function statusColour(status: string) {
     switch (status) {
-      case "On Route":
-        return "#2563eb";
+        case "On Route":
+            return "#2563eb";
 
-      case "In Progress":
-        return "#0f766e";
+        case "In Progress":
+            return "#0f766e";
 
-      case "Completed":
-        return "#15803d";
+        case "Ready for Signature":
+            return "#f59e0b";
 
-      case "Paid":
-        return "#7c3aed";
+        case "Completed":
+            return "#15803d";
 
-      default:
-        return "#b45309";
+        case "Paid":
+            return "#7c3aed";
+
+        default:
+            return "#b45309";
     }
-  }
+}
 
   function formatLocationTime(value: string) {
     if (!value) {
@@ -1312,23 +1315,19 @@ export default function DriverPage() {
                         )}
                       >
                         📦 In Progress
-                      </button>
-
                       <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() =>
-                          updateStatus(
-                            job.id,
-                            "Completed"
-                          )
-                        }
-                        style={actionStyle(
-                          "#15803d"
-                        )}
-                      >
-                        ✅ Completed
-                      </button>
+  type="button"
+  disabled={isBusy}
+  onClick={() =>
+    updateStatus(
+      job.id,
+      "Ready for Signature"
+    )
+  }
+  style={actionStyle("#f59e0b")}
+>
+  📝 Ready for Signature
+</button>
 
                       <button
                         type="button"
