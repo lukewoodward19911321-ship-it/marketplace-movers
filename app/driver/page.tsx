@@ -119,7 +119,7 @@ export default function DriverPage() {
           .eq("user_id", user.id)
           .eq("job_date", today)
           .neq("status", "Cancelled")
-          .order("job_time", { ascending: true });
+          .order("created_at", { ascending: false });
 
         if (error) {
           throw error;
