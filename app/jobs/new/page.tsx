@@ -148,8 +148,13 @@ export default function AddJobPage() {
       formElement.reset();
 
       if (phone) {
+        const siteOrigin =
+          window.location.hostname === "localhost"
+            ? "https://marketplace-movers.vercel.app"
+            : window.location.origin;
+
         const trackingLink = savedJob.tracking_token
-          ? `${window.location.origin}/track/${savedJob.tracking_token}`
+          ? `${siteOrigin}/track/${savedJob.tracking_token}`
           : "";
 
         const message = [
@@ -174,14 +179,20 @@ export default function AddJobPage() {
 
         const number = whatsAppNumber(phone);
         const whatsAppUrl =
-          `https://api.whatsapp.com/send?phone=${number}&text=${encodeURIComponent(message)}`;
+          `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 
-        window.location.href = whatsAppUrl;
+        const whatsAppWindow = window.open(
+          whatsAppUrl,
+          "_blank",
+          "noopener,noreferrer"
+        );
 
-        window.setTimeout(() => {
-          router.push("/jobs");
-        }, 1200);
+        if (!whatsAppWindow) {
+          window.location.href = whatsAppUrl;
+          return;
+        }
 
+        router.push("/jobs");
         return;
       }
 

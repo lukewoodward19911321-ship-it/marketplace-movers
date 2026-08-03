@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 
 type DatabaseJob = {
   id: string;
+  tracking_token: string | null;
   customer: string;
   phone: string;
   job_type: string;
@@ -29,6 +30,7 @@ type DatabaseExpense = {
 
 type Job = {
   id: string;
+  trackingToken: string;
   customer: string;
   phone: string;
   jobType: string;
@@ -85,6 +87,7 @@ export default function Home() {
             .select(
               `
                 id,
+                tracking_token,
                 customer,
                 phone,
                 job_type,
@@ -119,6 +122,7 @@ export default function Home() {
           (jobsData || []) as DatabaseJob[]
         ).map((job) => ({
           id: job.id,
+          trackingToken: job.tracking_token || "",
           customer: job.customer || "",
           phone: job.phone || "",
           jobType: job.job_type || "",
@@ -253,11 +257,101 @@ export default function Home() {
   ];
 
   function cleanPhoneNumber(phone: string) {
-    return phone.replace(/\s/g, "");
+    return phone.replace(/\D/g, "");
   }
 
   function whatsAppNumber(phone: string) {
-    return cleanPhoneNumber(phone).replace(/^0/, "44");
+    const digits = cleanPhoneNumber(phone);
+
+    if (digits.startsWith("0044")) {
+      return digits.slice(2);
+    }
+
+    if (digits.startsWith("44")) {
+      return digits;
+    }
+
+    if (digits.startsWith("0")) {
+      return `44${digits.slice(1)}`;
+    }
+
+    return digits;
+  }
+
+  function formatBookingDate(date: string) {
+    if (!date) {
+      return "Date to be confirmed";
+    }
+
+    return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  function formatBookingTime(time: string) {
+    return time ? time.slice(0, 5) : "Time to be confirmed";
+  }
+
+  async function openBookingConfirmationOnWhatsApp(job: Job) {
+    const number = whatsAppNumber(job.phone);
+
+    if (!number) {
+      setErrorMessage("This job does not have a valid phone number.");
+      return;
+    }
+
+    const siteOrigin =
+      window.location.hostname === "localhost"
+        ? "https://marketplace-movers.vercel.app"
+        : window.location.origin;
+
+    const trackingLink = job.trackingToken
+      ? `${siteOrigin}/track/${job.trackingToken}`
+      : "";
+
+    const message = [
+      `Hi ${job.customer || "there"},`,
+      "",
+      "Your Marketplace Movers booking is confirmed.",
+      "",
+      `Job: ${job.jobType || "Moving job"}`,
+      `Date: ${formatBookingDate(job.date)}`,
+      `Time: ${formatBookingTime(job.time)}`,
+      "",
+      "Collection:",
+      job.collection || "To be confirmed",
+      "",
+      "Delivery:",
+      job.delivery || "To be confirmed",
+      "",
+      trackingLink
+        ? `Track your driver here:\n${trackingLink}`
+        : "",
+      "",
+      "Thank you for choosing Marketplace Movers.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(message);
+    } catch (error) {
+      console.error("Clipboard error:", error);
+
+      window.prompt(
+        "Copy this booking confirmation, then paste it into WhatsApp:",
+        message
+      );
+    }
+
+    window.open(`https://wa.me/${number}`, "_blank");
+
+    window.alert(
+      "Booking confirmation copied.\n\nPress Ctrl + V inside WhatsApp, then press Send."
+    );
   }
 
   function wazeLink(address: string) {
@@ -647,18 +741,13 @@ export default function Home() {
                                   Call
                                 </a>
 
-                                <a
-                                  href={`https://wa.me/${whatsAppNumber(
-                                    job.phone
-                                  )}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  style={actionStyle(
-                                    "#166534"
-                                  )}
-                                >
-                                  WhatsApp
-                                </a>
+                                <button
+  type="button"
+  onClick={() => openBookingConfirmationOnWhatsApp(job)}
+  style={actionStyle("#166534")}
+>
+  WhatsApp
+</button>
                               </>
                             )}
 

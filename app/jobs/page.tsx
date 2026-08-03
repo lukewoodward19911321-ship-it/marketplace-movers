@@ -53,6 +53,74 @@ const buttonStyle = (background: string) => ({
   display: "inline-block",
 });
 
+
+function whatsAppNumber(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+
+  if (digits.startsWith("0044")) {
+    return digits.slice(2);
+  }
+
+  if (digits.startsWith("44")) {
+    return digits;
+  }
+
+  if (digits.startsWith("0")) {
+    return `44${digits.slice(1)}`;
+  }
+
+  return digits;
+}
+
+function formatBookingDate(date: string) {
+  if (!date) {
+    return "Date to be confirmed";
+  }
+
+  return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatBookingTime(time: string) {
+  return time ? time.slice(0, 5) : "Time to be confirmed";
+}
+
+function buildWhatsAppConfirmation(job: Job) {
+  const siteOrigin =
+    window.location.hostname === "localhost"
+      ? "https://marketplace-movers.vercel.app"
+      : window.location.origin;
+
+  const trackingLink = job.trackingToken
+    ? `${siteOrigin}/track/${job.trackingToken}`
+    : "";
+
+  return [
+    `Hi ${job.customer || "there"},`,
+    "",
+    "Your Marketplace Movers booking is confirmed.",
+    "",
+    `Job: ${job.jobType || "Moving job"}`,
+    `Date: ${formatBookingDate(job.date)}`,
+    `Time: ${formatBookingTime(job.time)}`,
+    `Collection: ${job.collection || "To be confirmed"}`,
+    `Delivery: ${job.delivery || "To be confirmed"}`,
+    "",
+    trackingLink
+      ? `You can view your booking and track the driver here:\n${trackingLink}`
+      : "",
+    "",
+    "Thank you,",
+    "Marketplace Movers",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export default function JobsPage() {
   const router = useRouter();
 
@@ -299,6 +367,22 @@ export default function JobsPage() {
         trackingLink
       );
     }
+  }
+
+
+  function openBookingConfirmationOnWhatsApp(job: Job) {
+    const number = whatsAppNumber(job.phone);
+
+    if (!number) {
+      setErrorMessage("This job does not have a valid phone number.");
+      return;
+    }
+
+    const message = buildWhatsAppConfirmation(job);
+    const whatsappUrl =
+      `https://api.whatsapp.com/send?phone=${number}&text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, "_blank");
   }
 
   async function shareTrackingOnWhatsApp(job: Job) {
@@ -743,19 +827,15 @@ export default function JobsPage() {
                                 Call
                               </a>
 
-                              <a
-                                href={`https://wa.me/${phoneNumber.replace(
-                                  /^0/,
-                                  "44"
-                                )}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={buttonStyle(
-                                  "#166534"
-                                )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openBookingConfirmationOnWhatsApp(job)
+                                }
+                                style={buttonStyle("#166534")}
                               >
                                 WhatsApp
-                              </a>
+                              </button>
                             </>
                           )}
 
