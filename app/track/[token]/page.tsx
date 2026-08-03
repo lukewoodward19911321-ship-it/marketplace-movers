@@ -1031,6 +1031,48 @@ export default function TrackingPage() {
           )}
         </div>
 
+        {job.status === "Completed" && (
+          <div
+            style={{
+              ...cardStyle,
+              marginTop: "18px",
+              textAlign: "center",
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>⭐⭐⭐⭐⭐</h2>
+
+            <p
+              style={{
+                color: "#96a3b5",
+                marginBottom: "20px",
+                lineHeight: "1.6",
+              }}
+            >
+              Thank you for choosing Marketplace Movers!
+              <br />
+              If you were happy with our service, we'd really appreciate a quick Facebook review.
+            </p>
+
+            <a
+              href="https://www.facebook.com/MarketplaceMoversWales/reviews"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-block",
+                background: "#1877f2",
+                color: "white",
+                textDecoration: "none",
+                padding: "14px 28px",
+                borderRadius: "10px",
+                fontWeight: "bold",
+                fontSize: "16px",
+              }}
+            >
+              ⭐ Leave a Facebook Review
+            </a>
+          </div>
+        )}
+
       </section>
 
       {selectedPhoto && (
