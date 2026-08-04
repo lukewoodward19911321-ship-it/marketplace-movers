@@ -16,13 +16,11 @@ export default function Header() {
   const [business, setBusiness] = useState<Business>("movers");
 
   useEffect(() => {
-    if (pathname.startsWith("/pest-control")) {
-      setBusiness("pest");
-      window.localStorage.setItem("active-business", "pest");
-    } else {
-      setBusiness("movers");
-      window.localStorage.setItem("active-business", "movers");
-    }
+    const currentBusiness =
+      pathname.startsWith("/pest-control") ? "pest" : "movers";
+
+    setBusiness(currentBusiness);
+    window.localStorage.setItem("active-business", currentBusiness);
   }, [pathname]);
 
   useEffect(() => {
@@ -44,9 +42,7 @@ export default function Header() {
 
   async function logout() {
     setLoggingOut(true);
-
     await supabase.auth.signOut();
-
     router.push("/login");
     router.refresh();
   }
@@ -66,86 +62,164 @@ export default function Header() {
     { name: "Technician Workflow", href: "/pest-control/technician" },
     { name: "Pest Jobs", href: "/pest-control/jobs" },
     { name: "Customers", href: "/pest-control/customers" },
-    { name: "Reports", href: "/pest-control/reports" },
     { name: "Treatments", href: "/pest-control/treatments" },
+    { name: "Reports", href: "/pest-control/reports" },
     { name: "Calendar", href: "/pest-control/calendar" },
     { name: "Finance", href: "/pest-control/finance" },
   ];
 
   const links = business === "movers" ? moversLinks : pestLinks;
 
+  const banner = (() => {
+
+  // Marketplace Movers
+  if (!pathname.startsWith("/pest-control")) {
+
+    if (pathname === "/")
+      return "/banners/marketplace-dashboard.jpg";
+
+    if (pathname.startsWith("/driver"))
+      return "/banners/marketplace-driver.jpg";
+
+    if (pathname.startsWith("/jobs"))
+      return "/banners/marketplace-jobs.jpg";
+
+    if (pathname.startsWith("/customers"))
+      return "/banners/marketplace-customers.jpg";
+
+    if (pathname.startsWith("/calendar"))
+      return "/banners/marketplace-calendar.jpg";
+
+    if (pathname.startsWith("/finance"))
+      return "/banners/marketplace-finance.jpg";
+
+    if (pathname.startsWith("/expenses"))
+      return "/banners/marketplace-expenses.jpg";
+
+    return "/banners/marketplace-dashboard.jpg";
+  }
+
+  // Pest Control
+  if (pathname === "/pest-control")
+    return "/banners/pest-dashboard.jpg";
+
+  if (pathname.startsWith("/pest-control/technician"))
+    return "/banners/pest-technician.jpg";
+
+  if (pathname.startsWith("/pest-control/jobs"))
+    return "/banners/pest-jobs.jpg";
+
+  if (pathname.startsWith("/pest-control/customers"))
+    return "/banners/pest-customers.jpg";
+
+  if (pathname.startsWith("/pest-control/treatments"))
+    return "/banners/pest-treatments.jpg";
+
+  if (pathname.startsWith("/pest-control/reports"))
+    return "/banners/pest-reports.jpg";
+
+  if (pathname.startsWith("/pest-control/calendar"))
+    return "/banners/pest-calendar.jpg";
+
+  if (pathname.startsWith("/pest-control/finance"))
+    return "/banners/pest-finance.jpg";
+
+  return "/banners/pest-dashboard.jpg";
+
+})();
+
+  const accent =
+    business === "movers"
+      ? "#1565ff"
+      : "#65a30d";
+
   return (
     <header
       style={{
         background: "#05070b",
-        borderBottom:
-          business === "movers"
-            ? "3px solid #1565ff"
-            : "3px solid #65a30d",
+        borderBottom: `3px solid ${accent}`,
       }}
     >
-      <img
-        src="/marketplace-banner.jpg"
-        alt={
-          business === "movers"
-            ? "Marketplace Movers"
-            : "Terminator Pest Control"
-        }
+      {/* Banner */}
+      <div
         style={{
-          display: "block",
           width: "100%",
-          height: "auto",
-          maxHeight: "320px",
-          objectFit: "cover",
+          overflow: "hidden",
+          background: "#05070b",
         }}
-      />
+      >
+        <img
+          src={banner}
+          alt={business === "movers"
+            ? "Marketplace Movers"
+            : "Terminator Pest Control"}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "auto",
+          }}
+        />
+      </div>
 
+      {/* Navigation */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           gap: "20px",
-          padding: "16px 30px",
+          padding: "16px 28px",
           flexWrap: "wrap",
         }}
       >
         <nav
           style={{
             display: "flex",
-            gap: "24px",
+            gap: "26px",
             overflowX: "auto",
-            fontWeight: "bold",
             flex: 1,
           }}
         >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              style={{
-                color: "white",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {link.name}
-            </Link>
-          ))}
+          {links.map((link) => {
+            const active =
+              pathname === link.href ||
+              (link.href !== "/" && pathname.startsWith(link.href));
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{
+                  color: active ? accent : "#ffffff",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: "16px",
+                  paddingBottom: "5px",
+                  borderBottom: active
+                    ? `2px solid ${accent}`
+                    : "2px solid transparent",
+                  transition: "all .2s",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {link.name}
+              </Link>
+            );
+          })}
         </nav>
 
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "16px",
             flexWrap: "wrap",
           }}
         >
           {email && (
             <span
               style={{
-                color: "#96a3b5",
+                color: "#94a3b8",
                 fontSize: "14px",
               }}
             >
@@ -154,18 +228,16 @@ export default function Header() {
           )}
 
           <button
-            type="button"
             onClick={logout}
             disabled={loggingOut}
             style={{
-              background: "#b91c1c",
-              color: "white",
+              background: "#dc2626",
+              color: "#fff",
               border: "none",
-              borderRadius: "9px",
-              padding: "10px 14px",
-              fontWeight: "bold",
+              borderRadius: "10px",
+              padding: "10px 18px",
+              fontWeight: 700,
               cursor: loggingOut ? "wait" : "pointer",
-              opacity: loggingOut ? 0.7 : 1,
             }}
           >
             {loggingOut ? "Logging out..." : "Logout"}
