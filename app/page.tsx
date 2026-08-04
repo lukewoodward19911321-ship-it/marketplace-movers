@@ -63,6 +63,14 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    const activeBusiness = window.localStorage.getItem("active-business");
+
+    if (activeBusiness === "pest") {
+      router.replace("/pest-control");
+    }
+  }, [router]);
+
+  useEffect(() => {
     async function loadDashboard() {
       setLoading(true);
       setErrorMessage("");

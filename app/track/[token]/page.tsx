@@ -418,558 +418,297 @@ export default function TrackingPage() {
     job.driver_latitude !== null &&
     job.driver_longitude !== null;
 
+  const latestPhoto = photos.length > 0 ? photos[photos.length - 1] : null;
+  const displayStatus = job.status || "Booked";
+
   return (
     <main style={pageStyle}>
-      <section
-        style={{
-          width: "100%",
-          maxWidth: "760px",
-        }}
-      >
-        <div
-          style={{
-            textAlign: "center",
-            marginBottom: "22px",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: "34px",
-              margin: "0 0 8px",
-            }}
-          >
-            Marketplace Movers
-          </h1>
-
-          <p
-            style={{
-              color: "#96a3b5",
-              margin: 0,
-            }}
-          >
-            Live booking and van tracking
-          </p>
-        </div>
-
-        {errorMessage && (
-          <div
-            style={{
-              background: "#451a1a",
-              border: "1px solid #991b1b",
-              borderRadius: "12px",
-              padding: "14px",
-              marginBottom: "18px",
-            }}
-          >
-            {errorMessage}
-          </div>
-        )}
-
-        <div style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: "16px",
-              flexWrap: "wrap",
-            }}
-          >
-            <div>
-              <p
-                style={{
-                  color: "#96a3b5",
-                  margin: "0 0 6px",
-                }}
-              >
-                Booking for
-              </p>
-
-              <h2 style={{ margin: 0 }}>
-                {job.customer || "Customer"}
-              </h2>
-            </div>
-
-            <span
-              style={{
-                background:
-                  job.status === "Cancelled"
-                    ? "#b91c1c"
-                    : "#1565ff",
-                borderRadius: "999px",
-                padding: "9px 14px",
-                fontWeight: "bold",
-              }}
-            >
-              {job.status || "Booked"}
-            </span>
-          </div>
-
-          <div
-            style={{
-              marginTop: "24px",
-              display: "grid",
-              gap: "12px",
-            }}
-          >
-            <div style={detailBoxStyle}>
-              <span style={detailLabelStyle}>Job</span>
-              <strong>{job.job_type || "Moving job"}</strong>
-            </div>
-
-            <div style={detailBoxStyle}>
-              <span style={detailLabelStyle}>
-                Date and time
-              </span>
-
-              <strong>
-                {formatDate(job.job_date)} at{" "}
-                {formatTime(job.job_time)}
-              </strong>
-            </div>
-
-            <div style={detailBoxStyle}>
-              <span style={detailLabelStyle}>
-                Collection
-              </span>
-
-              <strong>
-                {job.collection || "Not supplied"}
-              </strong>
-            </div>
-
-            <div style={detailBoxStyle}>
-              <span style={detailLabelStyle}>
-                Delivery
-              </span>
-
-              <strong>
-                {job.delivery || "Not supplied"}
-              </strong>
-            </div>
+      <section style={portalStyle}>
+        <div style={heroStyle}>
+          <img
+            src="/banners/marketplace-customer-banner.png"
+            alt="Marketplace Movers — We collect, you relax"
+            style={heroImageStyle}
+          />
+          <div style={heroOverlayStyle}>
+            <span style={heroEyebrowStyle}>MARKETPLACE MOVERS</span>
+            <h1 style={heroTitleStyle}>We collect. You relax.</h1>
+            <p style={heroTextStyle}>
+              Live tracking, photo updates and reliable delivery across South Wales.
+            </p>
           </div>
         </div>
 
-        <div
-          style={{
-            ...cardStyle,
-            marginTop: "18px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            <div>
-              <h2 style={{ margin: 0 }}>Your items</h2>
-              <p
-                style={{
-                  margin: "7px 0 0",
-                  color: "#96a3b5",
-                  fontSize: "14px",
-                }}
-              >
-                Photos uploaded by your driver during the job.
-              </p>
+        {errorMessage && <div style={errorBannerStyle}>{errorMessage}</div>}
+
+        <div style={summaryGridStyle}>
+          <div style={{ ...panelStyle, gridColumn: "span 2" }}>
+            <div style={summaryHeaderStyle}>
+              <div>
+                <p style={eyebrowStyle}>YOUR DELIVERY</p>
+                <h2 style={sectionTitleStyle}>{job.customer || "Customer"}</h2>
+                <p style={mutedStyle}>{job.job_type || "Moving job"}</p>
+              </div>
+              <span style={statusPillStyle(displayStatus)}>{displayStatus}</span>
             </div>
 
-            <span
-              style={{
-                background: photos.length > 0 ? "#166534" : "#334155",
-                borderRadius: "999px",
-                padding: "8px 12px",
-                fontWeight: "bold",
-                fontSize: "13px",
-              }}
-            >
-              {photos.length === 0
-                ? "Waiting for photos"
-                : `${photos.length} photo${photos.length === 1 ? "" : "s"}`}
-            </span>
+            <div style={routeGridStyle}>
+              <div style={routeCardStyle}>
+                <span style={routeIconStyle}>A</span>
+                <div>
+                  <span style={smallLabelStyle}>Collection</span>
+                  <strong>{job.collection || "Not supplied"}</strong>
+                </div>
+              </div>
+              <div style={routeLineStyle} />
+              <div style={routeCardStyle}>
+                <span style={{ ...routeIconStyle, background: "#22c55e" }}>B</span>
+                <div>
+                  <span style={smallLabelStyle}>Delivery</span>
+                  <strong>{job.delivery || "Not supplied"}</strong>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {photos.length === 0 ? (
-            <div
-              style={{
-                marginTop: "18px",
-                background: "#0b111b",
-                border: "1px solid #26364c",
-                borderRadius: "12px",
-                padding: "18px",
-              }}
-            >
-              <p style={{ margin: "0 0 7px" }}>
-                No item photos have been uploaded yet.
-              </p>
-              <p
-                style={{
-                  margin: 0,
-                  color: "#96a3b5",
-                  fontSize: "14px",
-                }}
-              >
-                New photos will appear here automatically.
-              </p>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(210px, 1fr))",
-                gap: "14px",
-                marginTop: "18px",
-              }}
-            >
-              {photos.map((photo) => (
-                <button
-                  key={photo.id}
-                  type="button"
-                  onClick={() => setSelectedPhoto(photo)}
-                  style={{
-                    padding: 0,
-                    border: "1px solid #26364c",
-                    borderRadius: "14px",
-                    overflow: "hidden",
-                    background: "#0b111b",
-                    color: "white",
-                    textAlign: "left",
-                    cursor: "pointer",
-                  }}
-                  aria-label="Open item photo full screen"
-                >
-                  <img
-                    src={photo.publicUrl}
-                    alt={photo.caption || "Customer items"}
-                    style={{
-                      width: "100%",
-                      height: "220px",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
+          <div style={metricCardStyle}>
+            <span style={smallLabelStyle}>Estimated arrival</span>
+            <strong style={metricValueStyle}>{formatTime(job.job_time)}</strong>
+            <span style={metricSubtextStyle}>Scheduled delivery time</span>
+          </div>
 
-                  <div style={{ padding: "13px" }}>
-                    <strong>
-                      {photo.caption || "Items photo"}
-                    </strong>
-                    <p
-                      style={{
-                        color: "#96a3b5",
-                        margin: "7px 0 0",
-                        fontSize: "13px",
-                      }}
-                    >
-                      {photo.photo_type} · {formatPhotoTime(photo.created_at)}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <div style={metricCardStyle}>
+            <span style={smallLabelStyle}>Booking date</span>
+            <strong style={{ ...metricValueStyle, fontSize: "22px" }}>
+              {formatDate(job.job_date)}
+            </strong>
+            <span style={metricSubtextStyle}>Updates refresh every 10 seconds</span>
+          </div>
         </div>
 
-        <div
-          style={{
-            ...cardStyle,
-            marginTop: "18px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            <h2 style={{ margin: 0 }}>Live van location</h2>
-
-            <span
-              style={{
-                background: hasLocation ? "#166534" : "#334155",
-                borderRadius: "999px",
-                padding: "8px 12px",
-                fontWeight: "bold",
-                fontSize: "13px",
-              }}
-            >
-              {hasLocation
-                ? "● LIVE"
-                : "Location not currently shared"}
-            </span>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <p style={eyebrowStyle}>LIVE TRACKING</p>
+            <h2 style={sectionTitleStyle}>
+              {hasLocation ? "Your driver is on the way" : "Waiting for live location"}
+            </h2>
           </div>
+          <span style={livePillStyle(hasLocation)}>
+            {hasLocation ? "● LIVE" : "OFFLINE"}
+          </span>
+        </div>
 
+        <div style={mapPanelStyle}>
           {hasLocation &&
           job.driver_latitude !== null &&
           job.driver_longitude !== null ? (
             <>
-              <div
-                style={{
-                  marginTop: "18px",
-                  border: "1px solid #26364c",
-                  borderRadius: "14px",
-                  overflow: "hidden",
-                  background: "#0b111b",
-                }}
-              >
-                <iframe
-                  title="Marketplace Movers live van location"
-                  src={mapUrl(
-                    job.driver_latitude,
-                    job.driver_longitude
-                  )}
-                  style={{
-                    width: "100%",
-                    height: "360px",
-                    border: 0,
-                    display: "block",
-                  }}
-                  loading="lazy"
-                />
-              </div>
-
-              <div
-                style={{
-                  marginTop: "14px",
-                  background: "#0b111b",
-                  border: "1px solid #26364c",
-                  borderRadius: "12px",
-                  padding: "14px",
-                }}
-              >
-                <p style={{ margin: "0 0 6px" }}>
-                  <strong>Last location update:</strong>{" "}
-                  {formatLocationUpdate(
-                    job.driver_location_updated_at
-                  )}
-                </p>
-
-                {job.driver_location_accuracy !== null && (
-                  <p
-                    style={{
-                      margin: 0,
-                      color: "#aab4c3",
-                    }}
-                  >
-                    GPS accuracy: approximately{" "}
-                    {Math.round(job.driver_location_accuracy)}{" "}
-                    metres
+              <iframe
+                title="Marketplace Movers live van location"
+                src={mapUrl(job.driver_latitude, job.driver_longitude)}
+                style={mapStyle}
+                loading="lazy"
+              />
+              <div style={mapFooterStyle}>
+                <div>
+                  <strong>Last update</strong>
+                  <p style={mapMetaStyle}>
+                    {formatLocationUpdate(job.driver_location_updated_at)}
+                    {job.driver_location_accuracy !== null
+                      ? ` · approx. ${Math.round(job.driver_location_accuracy)}m accuracy`
+                      : ""}
                   </p>
-                )}
+                </div>
+                <a
+                  href={openMapUrl(job.driver_latitude, job.driver_longitude)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={primaryLinkStyle}
+                >
+                  Open in Maps
+                </a>
               </div>
-
-              <a
-                href={openMapUrl(
-                  job.driver_latitude,
-                  job.driver_longitude
-                )}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: "block",
-                  marginTop: "14px",
-                  background: "#1d4ed8",
-                  color: "white",
-                  textDecoration: "none",
-                  borderRadius: "10px",
-                  padding: "13px",
-                  textAlign: "center",
-                  fontWeight: "bold",
-                }}
-              >
-                Open van location in Maps
-              </a>
             </>
           ) : (
-            <div
-              style={{
-                marginTop: "18px",
-                background: "#0b111b",
-                border: "1px solid #26364c",
-                borderRadius: "12px",
-                padding: "18px",
-              }}
-            >
-              <p style={{ margin: "0 0 7px" }}>
-                The driver is not currently sharing a live
-                location.
-              </p>
-
-              <p
-                style={{
-                  margin: 0,
-                  color: "#96a3b5",
-                  fontSize: "14px",
-                }}
-              >
-                The map will appear automatically when live
-                tracking starts.
+            <div style={emptyStateStyle}>
+              <div style={emptyIconStyle}>🚚</div>
+              <h3 style={{ margin: "0 0 8px" }}>Live location not shared yet</h3>
+              <p style={mutedStyle}>
+                The map will appear automatically when your driver starts tracking.
               </p>
             </div>
           )}
         </div>
 
-        <div
-          style={{
-            ...cardStyle,
-            marginTop: "18px",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Delivery progress</h2>
+        <div style={panelStyle}>
+          <div style={sectionHeaderStyle}>
+            <div>
+              <p style={eyebrowStyle}>DELIVERY PROGRESS</p>
+              <h2 style={sectionTitleStyle}>Follow every step</h2>
+            </div>
+          </div>
 
           {job.status === "Cancelled" ? (
-            <div
-              style={{
-                background: "#451a1a",
-                border: "1px solid #991b1b",
-                borderRadius: "12px",
-                padding: "16px",
-              }}
-            >
-              This booking has been cancelled. Please contact
-              Marketplace Movers if you need assistance.
+            <div style={cancelledStyle}>
+              This booking has been cancelled. Please contact Marketplace Movers if you need help.
             </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: "12px",
-                marginTop: "20px",
-              }}
-            >
+            <div style={timelineStyle}>
               {trackingSteps.map((step, index) => {
                 const complete = index <= activeStep;
                 const current = index === activeStep;
-
                 return (
-                  <div
-                    key={step}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "14px",
-                      background: current ? "#102446" : "#0b111b",
-                      border: current
-                        ? "1px solid #2f7cff"
-                        : "1px solid #26364c",
-                      borderRadius: "12px",
-                      padding: "14px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "30px",
-                        height: "30px",
-                        borderRadius: "50%",
-                        display: "grid",
-                        placeItems: "center",
-                        flexShrink: 0,
-                        background: complete ? "#1565ff" : "#26364c",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {complete ? "✓" : index + 1}
-                    </div>
-
-                    <div>
-                      <strong>{step}</strong>
-
-                      {current && (
-                        <p
-                          style={{
-                            color: "#8bb8ff",
-                            margin: "4px 0 0",
-                            fontSize: "14px",
-                          }}
-                        >
-                          Current status
-                        </p>
+                  <div key={step} style={timelineItemStyle}>
+                    <div style={timelineTopStyle}>
+                      <div style={timelineDotStyle(complete, current)}>
+                        {complete ? "✓" : index + 1}
+                      </div>
+                      {index < trackingSteps.length - 1 && (
+                        <div style={timelineConnectorStyle(index < activeStep)} />
                       )}
                     </div>
+                    <strong style={timelineLabelStyle(current)}>{step}</strong>
                   </div>
                 );
               })}
             </div>
           )}
-
-          <p
-            style={{
-              color: "#718096",
-              fontSize: "13px",
-              marginBottom: 0,
-              marginTop: "18px",
-            }}
-          >
-            Status, photos and location refresh automatically every
-            10 seconds.
-          </p>
         </div>
 
-        <div
-          style={{
-            ...cardStyle,
-            marginTop: "18px",
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Delivery signature</h2>
+        <div style={photoFeatureGridStyle}>
+          <div style={panelStyle}>
+            <div style={sectionHeaderStyle}>
+              <div>
+                <p style={eyebrowStyle}>LATEST UPDATE</p>
+                <h2 style={sectionTitleStyle}>Latest delivery photo</h2>
+              </div>
+              <span style={photoCountStyle}>
+                {photos.length} photo{photos.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {latestPhoto ? (
+              <button
+                type="button"
+                onClick={() => setSelectedPhoto(latestPhoto)}
+                style={featuredPhotoButtonStyle}
+              >
+                <img
+                  src={latestPhoto.publicUrl}
+                  alt={latestPhoto.caption || "Latest delivery photo"}
+                  style={featuredPhotoStyle}
+                />
+                <div style={featuredCaptionStyle}>
+                  <strong>{latestPhoto.caption || "Delivery update"}</strong>
+                  <span>{formatPhotoTime(latestPhoto.created_at)}</span>
+                </div>
+              </button>
+            ) : (
+              <div style={emptyStateStyle}>
+                <div style={emptyIconStyle}>📷</div>
+                <h3 style={{ margin: "0 0 8px" }}>No photos yet</h3>
+                <p style={mutedStyle}>Your driver’s photos will appear here automatically.</p>
+              </div>
+            )}
+          </div>
+
+          <div style={driverCardStyle}>
+            <div style={driverAvatarStyle}>LW</div>
+            <p style={eyebrowStyle}>YOUR DRIVER</p>
+            <h2 style={{ ...sectionTitleStyle, marginTop: "6px" }}>Luke Woodward</h2>
+            <p style={mutedStyle}>Owner / Driver · Marketplace Movers</p>
+            <div style={ratingStyle}>★★★★★</div>
+            <p style={{ ...mutedStyle, lineHeight: 1.6 }}>
+              Friendly, reliable furniture collection and delivery across South Wales.
+            </p>
+            <div style={driverActionsStyle}>
+              <a href="tel:07940790267" style={secondaryLinkStyle}>Call Luke</a>
+              <a
+                href="https://wa.me/447940790267"
+                target="_blank"
+                rel="noreferrer"
+                style={primaryLinkStyle}
+              >
+                WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {photos.length > 1 && (
+          <div style={panelStyle}>
+            <div style={sectionHeaderStyle}>
+              <div>
+                <p style={eyebrowStyle}>PHOTO GALLERY</p>
+                <h2 style={sectionTitleStyle}>All job photos</h2>
+              </div>
+            </div>
+            <div style={galleryStyle}>
+              {photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  type="button"
+                  onClick={() => setSelectedPhoto(photo)}
+                  style={galleryButtonStyle}
+                >
+                  <img
+                    src={photo.publicUrl}
+                    alt={photo.caption || "Customer items"}
+                    style={galleryImageStyle}
+                  />
+                  <div style={galleryCaptionStyle}>
+                    <strong>{photo.caption || "Items photo"}</strong>
+                    <span>{photo.photo_type} · {formatPhotoTime(photo.created_at)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={panelStyle}>
+          <div style={sectionHeaderStyle}>
+            <div>
+              <p style={eyebrowStyle}>PROOF OF DELIVERY</p>
+              <h2 style={sectionTitleStyle}>Customer signature</h2>
+            </div>
+          </div>
 
           {signature ? (
-            <div style={detailBoxStyle}>
-              <strong>Signed by {signature.customer_name || "Customer"}</strong>
+            <div style={signatureSavedStyle}>
+              <div>
+                <strong style={{ fontSize: "20px" }}>
+                  Signed by {signature.customer_name || "Customer"}
+                </strong>
+                <p style={mutedStyle}>Signed {formatPhotoTime(signature.signed_at)}</p>
+              </div>
               <img
                 src={signature.publicUrl}
                 alt="Customer delivery signature"
-                style={{
-                  width: "100%",
-                  maxHeight: "240px",
-                  objectFit: "contain",
-                  background: "white",
-                  borderRadius: "10px",
-                }}
+                style={signatureImageStyle}
               />
-              <span style={detailLabelStyle}>
-                Signed {formatPhotoTime(signature.signed_at)}
-              </span>
             </div>
           ) : job.status === "Cancelled" ? (
-            <p style={{ color: "#96a3b5" }}>This booking was cancelled.</p>
+            <p style={mutedStyle}>This booking was cancelled.</p>
           ) : job.status !== "Ready for Signature" ? (
-            <div style={detailBoxStyle}>
-              <strong>Waiting for the driver</strong>
-              <span style={detailLabelStyle}>
-                The signature box will appear once the driver confirms the delivery is ready to be signed for.
-              </span>
+            <div style={emptyStateStyle}>
+              <div style={emptyIconStyle}>✍️</div>
+              <h3 style={{ margin: "0 0 8px" }}>Waiting for delivery</h3>
+              <p style={mutedStyle}>
+                The signature box appears when the driver marks the delivery ready to sign.
+              </p>
             </div>
           ) : (
             <>
-              <p style={{ color: "#96a3b5" }}>
-                The driver has confirmed delivery. Sign below to confirm the items were delivered safely.
+              <p style={mutedStyle}>
+                Please sign below to confirm your items were delivered safely.
               </p>
-
               <input
                 value={signatureName}
                 onChange={(event) => setSignatureName(event.target.value)}
                 placeholder="Your full name"
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  background: "#0b111b",
-                  color: "white",
-                  border: "1px solid #26364c",
-                  borderRadius: "10px",
-                  padding: "13px",
-                  marginBottom: "12px",
-                  fontSize: "16px",
-                }}
+                style={inputStyle}
               />
-
               <canvas
                 ref={canvasRef}
                 width={900}
@@ -979,32 +718,12 @@ export default function TrackingPage() {
                 onPointerUp={stopSignature}
                 onPointerCancel={stopSignature}
                 onPointerLeave={stopSignature}
-                style={{
-                  width: "100%",
-                  height: "220px",
-                  background: "white",
-                  borderRadius: "12px",
-                  touchAction: "none",
-                  display: "block",
-                }}
+                style={signatureCanvasStyle}
               />
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
-                  marginTop: "12px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={clearSignature}
-                  style={secondaryButtonStyle}
-                >
+              <div style={signatureButtonsStyle}>
+                <button type="button" onClick={clearSignature} style={secondaryButtonStyle}>
                   Clear
                 </button>
-
                 <button
                   type="button"
                   onClick={submitSignature}
@@ -1014,16 +733,8 @@ export default function TrackingPage() {
                   {submittingSignature ? "Saving..." : "Submit signature"}
                 </button>
               </div>
-
               {signatureMessage && (
-                <p
-                  style={{
-                    marginBottom: 0,
-                    color: signatureMessage.startsWith("Thank")
-                      ? "#4ade80"
-                      : "#fca5a5",
-                  }}
-                >
+                <p style={{ color: signatureMessage.startsWith("Thank") ? "#4ade80" : "#fca5a5" }}>
                   {signatureMessage}
                 </p>
               )}
@@ -1032,47 +743,26 @@ export default function TrackingPage() {
         </div>
 
         {job.status === "Completed" && (
-          <div
-            style={{
-              ...cardStyle,
-              marginTop: "18px",
-              textAlign: "center",
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>⭐⭐⭐⭐⭐</h2>
-
-            <p
-              style={{
-                color: "#96a3b5",
-                marginBottom: "20px",
-                lineHeight: "1.6",
-              }}
-            >
-              Thank you for choosing Marketplace Movers!
-              <br />
-              If you were happy with our service, we'd really appreciate a quick Facebook review.
+          <div style={reviewCardStyle}>
+            <div style={{ fontSize: "32px" }}>⭐⭐⭐⭐⭐</div>
+            <h2 style={{ margin: "10px 0" }}>Thank you for choosing Marketplace Movers</h2>
+            <p style={{ ...mutedStyle, maxWidth: "620px", margin: "0 auto 20px" }}>
+              We hope everything went smoothly. A quick Facebook review helps local customers find us.
             </p>
-
             <a
               href="https://www.facebook.com/MarketplaceMoversWales/reviews"
               target="_blank"
               rel="noreferrer"
-              style={{
-                display: "inline-block",
-                background: "#1877f2",
-                color: "white",
-                textDecoration: "none",
-                padding: "14px 28px",
-                borderRadius: "10px",
-                fontWeight: "bold",
-                fontSize: "16px",
-              }}
+              style={reviewButtonStyle}
             >
-              ⭐ Leave a Facebook Review
+              Leave a Facebook review
             </a>
           </div>
         )}
 
+        <footer style={footerStyle}>
+          Marketplace Movers · South Wales · 07940 790267
+        </footer>
       </section>
 
       {selectedPhoto && (
@@ -1081,78 +771,25 @@ export default function TrackingPage() {
           aria-modal="true"
           aria-label="Item photo preview"
           onClick={() => setSelectedPhoto(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(0, 0, 0, 0.92)",
-            padding: "20px",
-            display: "grid",
-            placeItems: "center",
-            cursor: "zoom-out",
-          }}
+          style={modalStyle}
         >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "1000px",
-              maxHeight: "94vh",
-              display: "grid",
-              gap: "12px",
-            }}
-          >
+          <div onClick={(event) => event.stopPropagation()} style={modalContentStyle}>
             <button
               type="button"
               onClick={() => setSelectedPhoto(null)}
-              style={{
-                justifySelf: "end",
-                background: "#1f2937",
-                color: "white",
-                border: "1px solid #475569",
-                borderRadius: "999px",
-                width: "42px",
-                height: "42px",
-                fontSize: "22px",
-                cursor: "pointer",
-              }}
+              style={modalCloseStyle}
               aria-label="Close photo"
             >
               ×
             </button>
-
             <img
               src={selectedPhoto.publicUrl}
               alt={selectedPhoto.caption || "Customer items"}
-              style={{
-                width: "100%",
-                maxHeight: "78vh",
-                objectFit: "contain",
-                borderRadius: "14px",
-                background: "#05070b",
-              }}
+              style={modalImageStyle}
             />
-
-            <div
-              style={{
-                background: "#111823",
-                border: "1px solid #243247",
-                borderRadius: "12px",
-                padding: "14px",
-              }}
-            >
-              <strong>
-                {selectedPhoto.caption || "Items photo"}
-              </strong>
-              <p
-                style={{
-                  margin: "6px 0 0",
-                  color: "#96a3b5",
-                }}
-              >
-                {selectedPhoto.photo_type} ·{" "}
-                {formatPhotoTime(selectedPhoto.created_at)}
-              </p>
+            <div style={modalCaptionStyle}>
+              <strong>{selectedPhoto.caption || "Items photo"}</strong>
+              <span>{selectedPhoto.photo_type} · {formatPhotoTime(selectedPhoto.created_at)}</span>
             </div>
           </div>
         </div>
@@ -1163,52 +800,111 @@ export default function TrackingPage() {
 
 const pageStyle = {
   minHeight: "100vh",
-  background: "#070b12",
+  background: "linear-gradient(180deg, #04070d 0%, #07111f 48%, #04070d 100%)",
   color: "white",
-  fontFamily: "Arial, sans-serif",
+  fontFamily: "Inter, Arial, sans-serif",
   display: "flex",
   justifyContent: "center",
-  alignItems: "flex-start",
-  padding: "35px 18px",
+  padding: "24px 14px 48px",
 };
 
-const cardStyle = {
-  background: "#111823",
-  border: "1px solid #243247",
-  borderRadius: "18px",
-  padding: "24px",
-};
-
-const detailBoxStyle = {
-  background: "#0b111b",
-  border: "1px solid #26364c",
-  borderRadius: "12px",
-  padding: "14px",
+const portalStyle = {
+  width: "100%",
+  maxWidth: "1180px",
   display: "grid",
-  gap: "6px",
+  gap: "18px",
 };
 
-const detailLabelStyle = {
-  color: "#96a3b5",
-  fontSize: "13px",
+const heroStyle = {
+  position: "relative" as const,
+  minHeight: "260px",
+  borderRadius: "24px",
+  overflow: "hidden",
+  border: "1px solid #1d4ed8",
+  boxShadow: "0 24px 70px rgba(0, 80, 255, 0.22)",
+  background: "linear-gradient(135deg, #061a45, #020617)",
 };
 
-const primaryButtonStyle = {
-  background: "#1d4ed8",
-  color: "white",
-  border: 0,
-  borderRadius: "10px",
-  padding: "13px",
-  fontWeight: "bold",
-  cursor: "pointer",
+const heroImageStyle = {
+  width: "100%",
+  height: "100%",
+  minHeight: "260px",
+  objectFit: "cover" as const,
+  display: "block",
 };
 
-const secondaryButtonStyle = {
-  background: "#334155",
-  color: "white",
-  border: "1px solid #475569",
-  borderRadius: "10px",
-  padding: "13px",
-  fontWeight: "bold",
-  cursor: "pointer",
+const heroOverlayStyle = {
+  position: "absolute" as const,
+  inset: 0,
+  display: "flex",
+  flexDirection: "column" as const,
+  justifyContent: "flex-end",
+  padding: "clamp(22px, 5vw, 48px)",
+  background: "linear-gradient(90deg, rgba(2,6,23,.92) 0%, rgba(2,6,23,.55) 48%, rgba(2,6,23,.08) 100%)",
 };
+
+const heroEyebrowStyle = { color: "#60a5fa", fontWeight: 800, letterSpacing: "0.14em", fontSize: "13px" };
+const heroTitleStyle = { margin: "8px 0", fontSize: "clamp(34px, 6vw, 64px)", lineHeight: 1 };
+const heroTextStyle = { margin: 0, color: "#dbeafe", maxWidth: "560px", fontSize: "17px", lineHeight: 1.5 };
+
+const errorBannerStyle = { background: "#451a1a", border: "1px solid #991b1b", borderRadius: "14px", padding: "14px" };
+const summaryGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "18px" };
+const panelStyle = { background: "rgba(15, 23, 42, .92)", border: "1px solid #22314a", borderRadius: "20px", padding: "clamp(18px, 3vw, 28px)", boxShadow: "0 16px 45px rgba(0,0,0,.18)" };
+const summaryHeaderStyle = { display: "flex", justifyContent: "space-between", gap: "18px", alignItems: "flex-start", flexWrap: "wrap" as const };
+const eyebrowStyle = { margin: 0, color: "#60a5fa", fontSize: "12px", fontWeight: 800, letterSpacing: "0.14em" };
+const sectionTitleStyle = { margin: "7px 0 0", fontSize: "clamp(23px, 3.5vw, 32px)" };
+const mutedStyle = { color: "#94a3b8", margin: "8px 0 0" };
+const statusPillStyle = (status: string) => ({ background: status === "Cancelled" ? "#991b1b" : status === "Completed" ? "#166534" : "#1d4ed8", color: "white", borderRadius: "999px", padding: "10px 15px", fontWeight: 800, whiteSpace: "nowrap" as const });
+const routeGridStyle = { marginTop: "24px", display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "14px", alignItems: "center" };
+const routeCardStyle = { display: "flex", gap: "12px", alignItems: "center", background: "#09111e", border: "1px solid #213149", borderRadius: "14px", padding: "15px" };
+const routeIconStyle = { width: "34px", height: "34px", borderRadius: "50%", background: "#2563eb", display: "grid", placeItems: "center", fontWeight: 900 };
+const routeLineStyle = { width: "34px", height: "2px", background: "linear-gradient(90deg,#2563eb,#22c55e)" };
+const smallLabelStyle = { display: "block", color: "#94a3b8", fontSize: "12px", marginBottom: "4px" };
+const metricCardStyle = { background: "linear-gradient(160deg,#0f1d33,#0b1220)", border: "1px solid #233653", borderRadius: "20px", padding: "24px", display: "grid", alignContent: "center", minHeight: "150px" };
+const metricValueStyle = { fontSize: "34px", marginTop: "8px" };
+const metricSubtextStyle = { color: "#64748b", marginTop: "8px", fontSize: "13px" };
+const sectionHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", flexWrap: "wrap" as const };
+const livePillStyle = (live: boolean) => ({ background: live ? "#166534" : "#334155", borderRadius: "999px", padding: "8px 12px", fontWeight: 800, fontSize: "13px" });
+const mapPanelStyle = { ...panelStyle, padding: "10px", overflow: "hidden" };
+const mapStyle = { width: "100%", height: "clamp(340px, 55vw, 560px)", border: 0, borderRadius: "14px", display: "block" };
+const mapFooterStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", padding: "14px 8px 5px", flexWrap: "wrap" as const };
+const mapMetaStyle = { color: "#94a3b8", margin: "5px 0 0", fontSize: "13px" };
+const primaryLinkStyle = { display: "inline-block", background: "#2563eb", color: "white", textDecoration: "none", padding: "12px 17px", borderRadius: "10px", fontWeight: 800, textAlign: "center" as const };
+const secondaryLinkStyle = { ...primaryLinkStyle, background: "#1e293b", border: "1px solid #475569" };
+const emptyStateStyle = { minHeight: "190px", display: "grid", placeItems: "center", alignContent: "center", textAlign: "center" as const, padding: "28px", background: "#09111e", border: "1px dashed #334155", borderRadius: "14px" };
+const emptyIconStyle = { fontSize: "36px", marginBottom: "10px" };
+const cancelledStyle = { marginTop: "18px", background: "#451a1a", border: "1px solid #991b1b", borderRadius: "12px", padding: "16px" };
+const timelineStyle = { marginTop: "26px", display: "grid", gridTemplateColumns: `repeat(${trackingSteps.length}, minmax(0, 1fr))`, gap: "4px" };
+const timelineItemStyle = { minWidth: 0, textAlign: "center" as const };
+const timelineTopStyle = { display: "flex", alignItems: "center" };
+const timelineDotStyle = (complete: boolean, current: boolean) => ({ width: "38px", height: "38px", borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0, background: complete ? "#2563eb" : "#1e293b", border: current ? "4px solid #93c5fd" : "2px solid #334155", boxShadow: current ? "0 0 24px rgba(59,130,246,.7)" : "none", fontWeight: 900 });
+const timelineConnectorStyle = (complete: boolean) => ({ height: "4px", flex: 1, background: complete ? "linear-gradient(90deg,#2563eb,#60a5fa)" : "#334155", borderRadius: "999px" });
+const timelineLabelStyle = (current: boolean) => ({ display: "block", marginTop: "10px", color: current ? "#93c5fd" : "#cbd5e1", fontSize: "13px" });
+const photoFeatureGridStyle = { display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(260px, 1fr)", gap: "18px" };
+const photoCountStyle = { background: "#166534", borderRadius: "999px", padding: "8px 12px", fontWeight: 800, fontSize: "13px" };
+const featuredPhotoButtonStyle = { width: "100%", marginTop: "18px", padding: 0, border: "1px solid #2a3b57", borderRadius: "16px", overflow: "hidden", background: "#09111e", color: "white", textAlign: "left" as const, cursor: "pointer" };
+const featuredPhotoStyle = { width: "100%", height: "clamp(300px, 48vw, 520px)", objectFit: "cover" as const, display: "block" };
+const featuredCaptionStyle = { display: "flex", justifyContent: "space-between", gap: "12px", padding: "14px", color: "#cbd5e1", flexWrap: "wrap" as const };
+const driverCardStyle = { ...panelStyle, background: "linear-gradient(160deg,#102044,#0b1220)", display: "flex", flexDirection: "column" as const, justifyContent: "center" };
+const driverAvatarStyle = { width: "72px", height: "72px", borderRadius: "50%", display: "grid", placeItems: "center", background: "linear-gradient(135deg,#2563eb,#60a5fa)", fontSize: "24px", fontWeight: 900, marginBottom: "18px" };
+const ratingStyle = { color: "#facc15", letterSpacing: "4px", fontSize: "20px", marginTop: "14px" };
+const driverActionsStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "18px" };
+const galleryStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginTop: "18px" };
+const galleryButtonStyle = { padding: 0, border: "1px solid #26364c", borderRadius: "14px", overflow: "hidden", background: "#09111e", color: "white", textAlign: "left" as const, cursor: "pointer" };
+const galleryImageStyle = { width: "100%", height: "220px", objectFit: "cover" as const, display: "block" };
+const galleryCaptionStyle = { padding: "13px", display: "grid", gap: "6px", color: "#94a3b8", fontSize: "13px" };
+const signatureSavedStyle = { display: "grid", gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 1fr)", gap: "18px", alignItems: "center", marginTop: "18px" };
+const signatureImageStyle = { width: "100%", maxHeight: "260px", objectFit: "contain" as const, background: "white", borderRadius: "12px", padding: "10px" };
+const inputStyle = { width: "100%", boxSizing: "border-box" as const, background: "#09111e", color: "white", border: "1px solid #26364c", borderRadius: "10px", padding: "13px", marginBottom: "12px", fontSize: "16px" };
+const signatureCanvasStyle = { width: "100%", height: "220px", background: "white", borderRadius: "12px", touchAction: "none", display: "block" };
+const signatureButtonsStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "12px" };
+const primaryButtonStyle = { background: "#2563eb", color: "white", border: 0, borderRadius: "10px", padding: "13px", fontWeight: 800, cursor: "pointer" };
+const secondaryButtonStyle = { background: "#334155", color: "white", border: "1px solid #475569", borderRadius: "10px", padding: "13px", fontWeight: 800, cursor: "pointer" };
+const reviewCardStyle = { ...panelStyle, textAlign: "center" as const, background: "linear-gradient(160deg,#132a55,#0b1220)", borderColor: "#315a9f" };
+const reviewButtonStyle = { display: "inline-block", background: "#1877f2", color: "white", textDecoration: "none", padding: "14px 26px", borderRadius: "10px", fontWeight: 800 };
+const footerStyle = { textAlign: "center" as const, color: "#64748b", padding: "16px" };
+const modalStyle = { position: "fixed" as const, inset: 0, zIndex: 9999, background: "rgba(0,0,0,.94)", padding: "20px", display: "grid", placeItems: "center", cursor: "zoom-out" };
+const modalContentStyle = { width: "100%", maxWidth: "1000px", maxHeight: "94vh", display: "grid", gap: "12px" };
+const modalCloseStyle = { justifySelf: "end", background: "#1f2937", color: "white", border: "1px solid #475569", borderRadius: "999px", width: "42px", height: "42px", fontSize: "22px", cursor: "pointer" };
+const modalImageStyle = { width: "100%", maxHeight: "78vh", objectFit: "contain" as const, borderRadius: "14px", background: "#05070b" };
+const modalCaptionStyle = { background: "#111823", border: "1px solid #243247", borderRadius: "12px", padding: "14px", display: "grid", gap: "6px", color: "#94a3b8" };
