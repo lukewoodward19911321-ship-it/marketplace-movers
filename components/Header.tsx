@@ -2,24 +2,28 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+type Business = "movers" | "pest";
 
 export default function Header() {
   const router = useRouter();
+  const pathname = usePathname();
 
   const [email, setEmail] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
+  const [business, setBusiness] = useState<Business>("movers");
 
-  const links = [
-    { name: "Dashboard", href: "/" },
-    { name: "Driver Mode", href: "/driver" },
-    { name: "Jobs", href: "/jobs" },
-    { name: "Calendar", href: "/calendar" },
-    { name: "Customers", href: "/customers" },
-    { name: "Finance", href: "/finance" },
-    { name: "Expenses", href: "/expenses" },
-  ];
+  useEffect(() => {
+    if (pathname.startsWith("/pest-control")) {
+      setBusiness("pest");
+      window.localStorage.setItem("active-business", "pest");
+    } else {
+      setBusiness("movers");
+      window.localStorage.setItem("active-business", "movers");
+    }
+  }, [pathname]);
 
   useEffect(() => {
     async function loadUser() {
@@ -47,20 +51,52 @@ export default function Header() {
     router.refresh();
   }
 
+  const moversLinks = [
+    { name: "Dashboard", href: "/" },
+    { name: "Driver Workflow", href: "/driver" },
+    { name: "Job Planner", href: "/jobs" },
+    { name: "Calendar", href: "/calendar" },
+    { name: "Customers", href: "/customers" },
+    { name: "Finance", href: "/finance" },
+    { name: "Expenses", href: "/expenses" },
+  ];
+
+  const pestLinks = [
+    { name: "Pest Dashboard", href: "/pest-control" },
+    { name: "Technician Workflow", href: "/pest-control/technician" },
+    { name: "Pest Jobs", href: "/pest-control/jobs" },
+    { name: "Customers", href: "/pest-control/customers" },
+    { name: "Reports", href: "/pest-control/reports" },
+    { name: "Treatments", href: "/pest-control/treatments" },
+    { name: "Calendar", href: "/pest-control/calendar" },
+    { name: "Finance", href: "/pest-control/finance" },
+  ];
+
+  const links = business === "movers" ? moversLinks : pestLinks;
+
   return (
     <header
       style={{
         background: "#05070b",
-        borderBottom: "3px solid #1565ff",
+        borderBottom:
+          business === "movers"
+            ? "3px solid #1565ff"
+            : "3px solid #65a30d",
       }}
     >
       <img
         src="/marketplace-banner.jpg"
-        alt="Marketplace Movers"
+        alt={
+          business === "movers"
+            ? "Marketplace Movers"
+            : "Terminator Pest Control"
+        }
         style={{
           display: "block",
           width: "100%",
           height: "auto",
+          maxHeight: "320px",
+          objectFit: "cover",
         }}
       />
 

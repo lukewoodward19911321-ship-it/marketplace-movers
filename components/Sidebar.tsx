@@ -2,23 +2,36 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 type Business = "movers" | "pest";
 
 export default function Sidebar() {
-  const [business, setBusiness] = useState<Business>("movers");
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [business, setBusiness] =
+    useState<Business>("movers");
 
   useEffect(() => {
-    const savedBusiness = localStorage.getItem("active-business");
-
-    if (savedBusiness === "movers" || savedBusiness === "pest") {
-      setBusiness(savedBusiness);
+    if (pathname.startsWith("/pest-control")) {
+      setBusiness("pest");
+      localStorage.setItem("active-business", "pest");
+    } else {
+      setBusiness("movers");
+      localStorage.setItem("active-business", "movers");
     }
-  }, []);
+  }, [pathname]);
 
   function changeBusiness(value: Business) {
     setBusiness(value);
     localStorage.setItem("active-business", value);
+
+    if (value === "pest") {
+      router.push("/pest-control");
+    } else {
+      router.push("/");
+    }
   }
 
   const moversLinks = [
@@ -32,17 +45,44 @@ export default function Sidebar() {
   ];
 
   const pestLinks = [
-    { name: "🏠 Pest Dashboard", href: "/pest-control" },
-    { name: "🧰 Technician Workflow", href: "/pest-control/technician" },
-    { name: "🐀 Pest Jobs", href: "/pest-control/jobs" },
-    { name: "👥 Customers", href: "/pest-control/customers" },
-    { name: "📝 Reports", href: "/pest-control/reports" },
-    { name: "🧪 Treatments", href: "/pest-control/treatments" },
-    { name: "📅 Calendar", href: "/pest-control/calendar" },
-    { name: "💷 Finance", href: "/pest-control/finance" },
+    {
+      name: "🏠 Pest Dashboard",
+      href: "/pest-control",
+    },
+    {
+      name: "🧰 Technician Workflow",
+      href: "/pest-control/technician",
+    },
+    {
+      name: "🐀 Pest Jobs",
+      href: "/pest-control/jobs",
+    },
+    {
+      name: "👥 Customers",
+      href: "/pest-control/customers",
+    },
+    {
+      name: "📝 Reports",
+      href: "/pest-control/reports",
+    },
+    {
+      name: "🧪 Treatments",
+      href: "/pest-control/treatments",
+    },
+    {
+      name: "📅 Calendar",
+      href: "/pest-control/calendar",
+    },
+    {
+      name: "💷 Finance",
+      href: "/pest-control/finance",
+    },
   ];
 
-  const links = business === "movers" ? moversLinks : pestLinks;
+  const links =
+    business === "movers"
+      ? moversLinks
+      : pestLinks;
 
   return (
     <aside
@@ -76,7 +116,9 @@ export default function Sidebar() {
         <select
           value={business}
           onChange={(event) =>
-            changeBusiness(event.target.value as Business)
+            changeBusiness(
+              event.target.value as Business
+            )
           }
           style={{
             width: "100%",
@@ -89,8 +131,13 @@ export default function Sidebar() {
             fontWeight: "bold",
           }}
         >
-          <option value="movers">🚚 Marketplace Movers</option>
-          <option value="pest">🐀 Terminator Pest Control</option>
+          <option value="movers">
+            🚚 Marketplace Movers
+          </option>
+
+          <option value="pest">
+            🐀 Terminator Pest Control
+          </option>
         </select>
       </div>
 
