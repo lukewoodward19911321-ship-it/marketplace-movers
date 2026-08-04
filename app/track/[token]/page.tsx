@@ -393,7 +393,15 @@ export default function TrackingPage() {
   if (notFound) {
     return (
       <main style={pageStyle}>
-        <div style={cardStyle}>
+        <div
+  style={{
+    background: "#0f172a",
+    border: "1px solid #26364c",
+    borderRadius: "18px",
+    padding: "24px",
+    marginBottom: "24px",
+  }}
+>
           <h1 style={{ marginTop: 0 }}>
             Tracking link unavailable
           </h1>
@@ -430,13 +438,6 @@ export default function TrackingPage() {
             alt="Marketplace Movers — We collect, you relax"
             style={heroImageStyle}
           />
-          <div style={heroOverlayStyle}>
-            <span style={heroEyebrowStyle}>MARKETPLACE MOVERS</span>
-            <h1 style={heroTitleStyle}>We collect. You relax.</h1>
-            <p style={heroTextStyle}>
-              Live tracking, photo updates and reliable delivery across South Wales.
-            </p>
-          </div>
         </div>
 
         {errorMessage && <div style={errorBannerStyle}>{errorMessage}</div>}
@@ -453,7 +454,15 @@ export default function TrackingPage() {
             </div>
 
             <div style={routeGridStyle}>
-              <div style={routeCardStyle}>
+              <div
+  style={{
+    background: "#0f172a",
+    border: "1px solid #26364c",
+    borderRadius: "18px",
+    padding: "24px",
+    marginBottom: "24px",
+  }}
+>
                 <span style={routeIconStyle}>A</span>
                 <div>
                   <span style={smallLabelStyle}>Collection</span>
@@ -486,12 +495,57 @@ export default function TrackingPage() {
           </div>
         </div>
 
+        <div style={panelStyle}>
+          <div style={sectionHeaderStyle}>
+            <div>
+              <p style={eyebrowStyle}>DELIVERY PROGRESS</p>
+              <h2 style={sectionTitleStyle}>Follow every step</h2>
+            </div>
+          </div>
+
+          {job.status === "Cancelled" ? (
+            <div style={cancelledStyle}>
+              This booking has been cancelled. Please contact Marketplace Movers if you need help.
+            </div>
+          ) : (
+            <div style={timelineStyle}>
+              {trackingSteps.map((step, index) => {
+                const complete = index <= activeStep;
+                const current = index === activeStep;
+                return (
+                  <div key={step} style={timelineItemStyle}>
+                    <div style={timelineTopStyle}>
+                      <div style={timelineDotStyle(complete, current)}>
+                        {complete ? "✓" : index + 1}
+                      </div>
+                      {index < trackingSteps.length - 1 && (
+                        <div style={timelineConnectorStyle(index < activeStep)} />
+                      )}
+                    </div>
+                    <strong style={timelineLabelStyle(current)}>{step}</strong>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+
         <div style={sectionHeaderStyle}>
           <div>
             <p style={eyebrowStyle}>LIVE TRACKING</p>
             <h2 style={sectionTitleStyle}>
-              {hasLocation ? "Your driver is on the way" : "Waiting for live location"}
+              {hasLocation
+                ? "Your driver is on the way"
+                : job.status === "Booked"
+                  ? "Your journey has not started yet"
+                  : "Waiting for live location"}
             </h2>
+            <p style={mutedStyle}>
+              {hasLocation
+                ? "The van location refreshes automatically every 10 seconds."
+                : "The map will appear automatically when live tracking starts."}
+            </p>
           </div>
           <span style={livePillStyle(hasLocation)}>
             {hasLocation ? "● LIVE" : "OFFLINE"}
@@ -536,41 +590,6 @@ export default function TrackingPage() {
               <p style={mutedStyle}>
                 The map will appear automatically when your driver starts tracking.
               </p>
-            </div>
-          )}
-        </div>
-
-        <div style={panelStyle}>
-          <div style={sectionHeaderStyle}>
-            <div>
-              <p style={eyebrowStyle}>DELIVERY PROGRESS</p>
-              <h2 style={sectionTitleStyle}>Follow every step</h2>
-            </div>
-          </div>
-
-          {job.status === "Cancelled" ? (
-            <div style={cancelledStyle}>
-              This booking has been cancelled. Please contact Marketplace Movers if you need help.
-            </div>
-          ) : (
-            <div style={timelineStyle}>
-              {trackingSteps.map((step, index) => {
-                const complete = index <= activeStep;
-                const current = index === activeStep;
-                return (
-                  <div key={step} style={timelineItemStyle}>
-                    <div style={timelineTopStyle}>
-                      <div style={timelineDotStyle(complete, current)}>
-                        {complete ? "✓" : index + 1}
-                      </div>
-                      {index < trackingSteps.length - 1 && (
-                        <div style={timelineConnectorStyle(index < activeStep)} />
-                      )}
-                    </div>
-                    <strong style={timelineLabelStyle(current)}>{step}</strong>
-                  </div>
-                );
-              })}
             </div>
           )}
         </div>
@@ -817,7 +836,7 @@ const portalStyle = {
 
 const heroStyle = {
   position: "relative" as const,
-  minHeight: "260px",
+  minHeight: "210px",
   borderRadius: "24px",
   overflow: "hidden",
   border: "1px solid #1d4ed8",
@@ -828,27 +847,22 @@ const heroStyle = {
 const heroImageStyle = {
   width: "100%",
   height: "100%",
-  minHeight: "260px",
+  minHeight: "210px",
   objectFit: "cover" as const,
   display: "block",
 };
 
-const heroOverlayStyle = {
-  position: "absolute" as const,
-  inset: 0,
-  display: "flex",
-  flexDirection: "column" as const,
-  justifyContent: "flex-end",
-  padding: "clamp(22px, 5vw, 48px)",
-  background: "linear-gradient(90deg, rgba(2,6,23,.92) 0%, rgba(2,6,23,.55) 48%, rgba(2,6,23,.08) 100%)",
-};
-
-const heroEyebrowStyle = { color: "#60a5fa", fontWeight: 800, letterSpacing: "0.14em", fontSize: "13px" };
-const heroTitleStyle = { margin: "8px 0", fontSize: "clamp(34px, 6vw, 64px)", lineHeight: 1 };
-const heroTextStyle = { margin: 0, color: "#dbeafe", maxWidth: "560px", fontSize: "17px", lineHeight: 1.5 };
 
 const errorBannerStyle = { background: "#451a1a", border: "1px solid #991b1b", borderRadius: "14px", padding: "14px" };
 const summaryGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: "18px" };
+const cardStyle = {
+  background: "#0f172a",
+  border: "1px solid #26364c",
+  borderRadius: "18px",
+  padding: "24px",
+  marginBottom: "24px",
+};
+
 const panelStyle = { background: "rgba(15, 23, 42, .92)", border: "1px solid #22314a", borderRadius: "20px", padding: "clamp(18px, 3vw, 28px)", boxShadow: "0 16px 45px rgba(0,0,0,.18)" };
 const summaryHeaderStyle = { display: "flex", justifyContent: "space-between", gap: "18px", alignItems: "flex-start", flexWrap: "wrap" as const };
 const eyebrowStyle = { margin: 0, color: "#60a5fa", fontSize: "12px", fontWeight: 800, letterSpacing: "0.14em" };
