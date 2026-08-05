@@ -434,7 +434,7 @@ export default function TrackingPage() {
       <section style={portalStyle}>
         <div style={heroStyle}>
           <img
-            src="/banners/marketplace-customer-banner.png"
+            src="/marketplace-customer-banner.png"
             alt="Marketplace Movers — We collect, you relax"
             style={heroImageStyle}
           />
