@@ -1,5 +1,5 @@
 "use client";
-
+import JobPhotoUpload from "@/components/JobPhotoUpload";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -1152,13 +1152,35 @@ export default function DriverPage() {
 
                     <h3
                       style={{
-                        margin: "22px 0 12px",
+                        margin: "22px 0 6px",
                         color: "#cbd5e1",
                       }}
                     >
                       Contact and navigation
                     </h3>
 
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(220px, 1fr))",
+                        gap: "10px",
+                        marginTop: "-4px",
+                        marginBottom: "14px",
+                      }}
+                    >
+                      <JobPhotoUpload
+                        jobId={job.id}
+                        photoType="Collection"
+                        caption="Collection photo"
+                      />
+
+                      <JobPhotoUpload
+                        jobId={job.id}
+                        photoType="Delivery"
+                        caption="Delivery photo"
+                      />
+                    </div>
                     <div
                       style={{
                         display: "grid",
